@@ -1,0 +1,166 @@
+version: '3.8'
+
+services:
+  # MQTT Broker - Central message hub with TLS support
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: lwm2m-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"     # Plain MQTT
+      - "8883:8883"     # MQTT over TLS
+      - "9001:9001"     # WebSocket
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mosquitto/passwd:/mosquitto/config/passwd
+      - ./certs:/mosquitto/certs
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    networks:
+      - iot-network
+
+
+  # LwM2M Server - Device management via MQTT transport
+  lwm2m-server:
+    build: ./lwm2m-server
+    container_name: lwm2m-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"     # Web UI
+      - "5684:5684/udp" # CoAP (backup transport)
+    environment:
+      - MQTT_BROKER_HOST=mosquitto
+      - MQTT_BROKER_PORT=8883
+      - MQTT_USE_TLS=true
+      - SERVER_PORT=8080
+    volumes:
+      - ./certs:/app/certs:ro
+      - lwm2m_data:/app/data
+    depends_on:
+      - mosquitto
+    networks:
+      - iot-network
+
+  # Sparkplug B Host Application - Telemetry data processor
+  sparkplug-host:
+    build: ./sparkplug-host
+    container_name: sparkplug-host
+    restart: unless-stopped
+    ports:
+      - "8081:8081"     # Metrics endpoint
+    environment:
+      - MQTT_BROKER_HOST=mosquitto
+      - MQTT_BROKER_PORT=8883
+      - MQTT_USE_TLS=true
+      - METRICS_PORT=8081
+      - GROUP_ID=IIoT
+      - SPARKPLUG_NAMESPACE=spBv1.0
+    volumes:
+      - ./certs:/app/certs:ro
+      - ./proto:/app/proto:ro
+    depends_on:
+      - mosquitto
+    networks:
+      - iot-network
+
+  # Device Simulator - Generates both LwM2M and Sparkplug B traffic
+  device-simulator:
+    build: ./device-simulator
+    restart: unless-stopped
+    environment:
+      - MQTT_BROKER_HOST=mosquitto
+      - MQTT_BROKER_PORT=1883
+      - MQTT_USE_TLS=false
+      - MQTT_USERNAME=
+      - MQTT_PASSWORD=
+      - LWM2M_SERVER_HOST=lwm2m-server
+      - LWM2M_SERVER_PORT=8080
+      - DEVICE_COUNT=${DEVICE_COUNT:-1}
+      - TELEMETRY_INTERVAL=${TELEMETRY_INTERVAL:-1}
+      - LWM2M_INTERVAL=${LWM2M_INTERVAL:-3}
+      - GROUP_ID=IIoT
+      - SPARKPLUG_NAMESPACE=spBv1.0
+    volumes:
+      - ./certs:/app/certs:ro
+      - ./device-profiles:/app/device-profiles:ro
+    depends_on:
+      - mosquitto
+      - lwm2m-server
+      - sparkplug-host
+    networks:
+      - iot-network
+    deploy:
+      replicas: 1
+
+  # Prometheus - Metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: lwm2m-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - iot-network
+
+  # Grafana - Metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: lwm2m-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - iot-network
+
+  # MQTT Message Monitor - Real-time message inspection
+  mqtt-monitor:
+    build: ./mqtt-monitor
+    container_name: mqtt-monitor
+    restart: unless-stopped
+    ports:
+      - "8082:8082"     # Web interface
+    environment:
+      - MQTT_BROKER_HOST=mosquitto
+      - MQTT_BROKER_PORT=8883
+      - MQTT_USE_TLS=true
+      - WEB_PORT=8082
+    volumes:
+      - ./certs:/app/certs:ro
+    depends_on:
+      - mosquitto
+    networks:
+      - iot-network
+
+volumes:
+  mosquitto_data:
+  mosquitto_log:
+  lwm2m_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  iot-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16 

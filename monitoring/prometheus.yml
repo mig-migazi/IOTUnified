@@ -1,0 +1,55 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # LwM2M Server metrics
+  - job_name: 'lwm2m-server'
+    static_configs:
+      - targets: ['lwm2m-server:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Sparkplug B Host Application metrics
+  - job_name: 'sparkplug-host'
+    static_configs:
+      - targets: ['sparkplug-host:8081']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # MQTT Broker metrics (if exporter is available)
+  - job_name: 'mqtt-broker'
+    static_configs:
+      - targets: ['mosquitto:9091']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # MQTT Monitor metrics
+  - job_name: 'mqtt-monitor'
+    static_configs:
+      - targets: ['mqtt-monitor:8082']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Container metrics (cAdvisor if available)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Node exporter (host metrics if available)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    metrics_path: '/metrics'
+    scrape_interval: 30s 

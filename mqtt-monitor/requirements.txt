@@ -1,0 +1,5 @@
+paho-mqtt==1.6.1
+flask==2.3.3
+flask-socketio==5.3.6
+structlog==23.1.0
+prometheus-client==0.17.1 
