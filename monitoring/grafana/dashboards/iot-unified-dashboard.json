@@ -175,7 +175,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "up",
+          "expr": "up{job=~\"prometheus|lwm2m-server|sparkplug-host|mqtt-monitor\"}",
           "interval": "",
           "legendFormat": "{{job}}",
           "refId": "A"

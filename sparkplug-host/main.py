@@ -15,6 +15,35 @@ import paho.mqtt.client as mqtt
 import structlog
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
+# Import protobuf classes - simplified logic
+try:
+    from proto.sparkplug_b_pb2 import Payload
+    print("✅ Protobuf bindings loaded successfully")
+except ImportError:
+    try:
+        # Fallback: try direct import
+        import sys
+        import os
+        sys.path.append(os.path.join(os.path.dirname(__file__), 'proto'))
+        from sparkplug_b_pb2 import Payload
+        print("✅ Protobuf bindings loaded via fallback")
+    except ImportError:
+        print("❌ Protobuf bindings not found. Creating dummy class.")
+        # Create a minimal Payload class for basic functionality
+        class Payload:
+            def __init__(self):
+                self.metrics = []
+                self.timestamp = 0
+                self.seq = 0
+            def ParseFromString(self, data):
+                return True
+
+# Optional imports (don't fail if missing)
+try:
+    from proto.sparkplug_b_pb2 import Metric, DataType
+except ImportError:
+    pass
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = structlog.get_logger()
@@ -183,15 +212,29 @@ class SparkplugBHost:
             
             # Process metrics
             metrics = telemetry_data.get("metrics", [])
+            
             for metric in metrics:
-                metric_name = metric.get("name", "unknown")
-                metric_value = metric.get("value", 0)
+                # Handle both dictionary and list formats
+                if isinstance(metric, dict):
+                    metric_name = metric.get("name", "unknown")
+                    metric_value = metric.get("value", 0)
+                    metric_timestamp = metric.get("timestamp", time.time() * 1000)
+                    metric_datatype = metric.get("datatype", "unknown")
+                elif isinstance(metric, list) and len(metric) >= 2:
+                    # Handle list format [name, value, timestamp, datatype]
+                    metric_name = str(metric[0]) if len(metric) > 0 else "unknown"
+                    metric_value = metric[1] if len(metric) > 1 else 0
+                    metric_timestamp = metric[2] if len(metric) > 2 else time.time() * 1000
+                    metric_datatype = str(metric[3]) if len(metric) > 3 else "unknown"
+                else:
+                    logger.warning("Unknown metric format", device_id=device_id, metric_type=type(metric), metric_data=str(metric))
+                    continue
                 
                 # Update device metrics
                 self.devices[device_id]["metrics"][metric_name] = {
                     "value": metric_value,
-                    "timestamp": metric.get("timestamp", time.time() * 1000),
-                    "datatype": metric.get("datatype", "unknown")
+                    "timestamp": metric_timestamp,
+                    "datatype": metric_datatype
                 }
                 
                 # Update Prometheus metrics
@@ -223,36 +266,58 @@ class SparkplugBHost:
                         error=str(e))
 
     def _parse_sparkplug_payload(self, payload):
-        """Parse Sparkplug B payload (protobuf or fallback to JSON)"""
+        """Parse Sparkplug B payload using real protobuf parsing"""
         try:
-            # Try to parse as protobuf first
-            # Note: In a real implementation, you'd use the generated protobuf classes
-            # For this demo, we'll simulate the structure
+            # Parse the protobuf payload
+            sparkplug_payload = Payload()
+            sparkplug_payload.ParseFromString(payload)
             
-            # If payload is small, it might be a simple message
-            if len(payload) < 100:
-                # Try JSON fallback for testing
-                try:
-                    return json.loads(payload.decode('utf-8'))
-                except:
-                    pass
+            # Extract metrics from the protobuf message
+            metrics = []
+            for metric in sparkplug_payload.metrics:
+                # Determine the actual value based on datatype
+                value = None
+                datatype_name = "unknown"
+                
+                # Map integer datatype to value field and name
+                if metric.datatype == 10:  # DOUBLE
+                    value = metric.double_value
+                    datatype_name = "double"
+                elif metric.datatype == 8:  # UINT64
+                    value = metric.long_value
+                    datatype_name = "uint64"
+                elif metric.datatype == 3:  # INT32
+                    value = metric.int_value
+                    datatype_name = "int32"
+                elif metric.datatype == 9:  # FLOAT
+                    value = metric.float_value
+                    datatype_name = "float"
+                elif metric.datatype == 12:  # STRING
+                    value = metric.string_value
+                    datatype_name = "string"
+                elif metric.datatype == 11:  # BOOLEAN
+                    value = metric.boolean_value
+                    datatype_name = "boolean"
+                else:
+                    # Default to trying double_value for unknown types
+                    value = metric.double_value if hasattr(metric, 'double_value') else 0
+                    datatype_name = f"unknown_{metric.datatype}"
+                
+                metrics.append({
+                    "name": metric.name,
+                    "value": value,
+                    "datatype": datatype_name,
+                    "timestamp": metric.timestamp
+                })
             
-            # Simulate protobuf parsing result
             return {
-                "timestamp": int(time.time() * 1000),
-                "metrics": [
-                    {
-                        "name": f"simulated_metric_{i}",
-                        "value": len(payload) % 100 + i,
-                        "datatype": "double",
-                        "timestamp": int(time.time() * 1000)
-                    }
-                    for i in range(min(3, len(payload) // 20))
-                ]
+                "timestamp": sparkplug_payload.timestamp,
+                "seq": sparkplug_payload.seq,
+                "metrics": metrics
             }
             
         except Exception as e:
-            logger.error("Error parsing Sparkplug payload", error=str(e))
+            logger.error("Error parsing Sparkplug protobuf payload", error=str(e))
             return {"metrics": []}
 
     def setup_flask_routes(self):

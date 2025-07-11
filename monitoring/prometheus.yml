@@ -26,13 +26,6 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 15s
 
-  # MQTT Broker metrics (if exporter is available)
-  - job_name: 'mqtt-broker'
-    static_configs:
-      - targets: ['mosquitto:9091']
-    metrics_path: '/metrics'
-    scrape_interval: 30s
-
   # MQTT Monitor metrics
   - job_name: 'mqtt-monitor'
     static_configs:
@@ -40,16 +33,7 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 30s
 
-  # Container metrics (cAdvisor if available)
-  - job_name: 'cadvisor'
-    static_configs:
-      - targets: ['cadvisor:8080']
-    metrics_path: '/metrics'
-    scrape_interval: 30s
-
-  # Node exporter (host metrics if available)
-  - job_name: 'node-exporter'
-    static_configs:
-      - targets: ['node-exporter:9100']
-    metrics_path: '/metrics'
-    scrape_interval: 30s 
+  # NOTE: Removed non-existent services:
+  # - cadvisor: Not deployed in our setup
+  # - node-exporter: Not deployed in our setup  
+  # - mqtt-broker: Mosquitto doesn't expose metrics on port 9091 

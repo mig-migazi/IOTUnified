@@ -68,6 +68,7 @@ services:
     build: ./device-simulator
     restart: unless-stopped
     environment:
+      - DEVICE_COUNT=2
       - MQTT_BROKER_HOST=mosquitto
       - MQTT_BROKER_PORT=1883
       - MQTT_USE_TLS=false
@@ -75,11 +76,9 @@ services:
       - MQTT_PASSWORD=
       - LWM2M_SERVER_HOST=lwm2m-server
       - LWM2M_SERVER_PORT=8080
-      - DEVICE_COUNT=${DEVICE_COUNT:-1}
-      - TELEMETRY_INTERVAL=${TELEMETRY_INTERVAL:-1}
-      - LWM2M_INTERVAL=${LWM2M_INTERVAL:-3}
       - GROUP_ID=IIoT
       - SPARKPLUG_NAMESPACE=spBv1.0
+      # NOTE: TELEMETRY_INTERVAL and LWM2M_INTERVAL are HARDCODED in Python code
     volumes:
       - ./certs:/app/certs:ro
       - ./device-profiles:/app/device-profiles:ro

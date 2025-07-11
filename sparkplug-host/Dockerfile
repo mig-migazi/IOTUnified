@@ -19,8 +19,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Generate protobuf bindings
-RUN protoc --python_out=. proto/sparkplug_b.proto
+# Generate protobuf bindings and ensure they're accessible
+RUN protoc --python_out=. proto/sparkplug_b.proto && \
+    ls -la proto/ && \
+    touch proto/__init__.py
 
 # Create non-root user
 RUN useradd -m -u 1000 sparkplug && chown -R sparkplug:sparkplug /app
