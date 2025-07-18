@@ -19,6 +19,69 @@ services:
     networks:
       - iot-network
 
+  # Redpanda - High-performance event streaming platform
+  redpanda:
+    image: redpandadata/redpanda:latest
+    container_name: iot-redpanda
+    restart: unless-stopped
+    ports:
+      - "8084:8081"     # HTTP API (Schema Registry)
+      - "8085:8082"     # Admin API (PandaProxy)
+      - "9092:9092"     # Kafka API
+      - "9644:9644"     # Metrics
+    command:
+      - redpanda
+      - start
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --overprovisioned
+      - --node-id 0
+      - --check=false
+      - --kafka-addr PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --advertise-pandaproxy-addr localhost:8082
+      - --schema-registry-addr 0.0.0.0:8081
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    networks:
+      - iot-network
+
+  # Redpanda Console - Web UI for Redpanda management
+  redpanda-console:
+    image: redpandadata/console:latest
+    container_name: iot-redpanda-console
+    restart: unless-stopped
+    ports:
+      - "8086:8080"     # Web UI
+    environment:
+      - REDPANDA_BROKERS=redpanda:29092
+      - REDPANDA_SCHEMA_REGISTRY_URL=http://redpanda:8081
+      - KAFKA_BROKERS=redpanda:29092
+    depends_on:
+      - redpanda
+    networks:
+      - iot-network
+
+  # MQTT to Redpanda Bridge (Simple Python)
+  mqtt-redpanda-bridge:
+    build: ./mqtt-redpanda-bridge
+    container_name: iot-mqtt-redpanda-bridge
+    restart: unless-stopped
+    ports:
+      - "8087:8083"     # Health check endpoint
+    environment:
+      - MQTT_BROKER_HOST=mosquitto
+      - MQTT_BROKER_PORT=1883
+      - MQTT_USE_TLS=false
+      - REDPANDA_BROKERS=redpanda:29092
+      - BRIDGE_PORT=8083
+    depends_on:
+      - mosquitto
+      - redpanda
+    networks:
+      - iot-network
 
   # LwM2M Server - Device management via MQTT transport
   lwm2m-server:
@@ -57,7 +120,6 @@ services:
       - SPARKPLUG_NAMESPACE=spBv1.0
     volumes:
       - ./certs:/app/certs:ro
-      - ./proto:/app/proto:ro
     depends_on:
       - mosquitto
     networks:
@@ -68,7 +130,7 @@ services:
     build: ./device-simulator
     restart: unless-stopped
     environment:
-      - DEVICE_COUNT=2
+      - DEVICE_COUNT=7
       - MQTT_BROKER_HOST=mosquitto
       - MQTT_BROKER_PORT=1883
       - MQTT_USE_TLS=false
@@ -156,6 +218,7 @@ volumes:
   lwm2m_data:
   prometheus_data:
   grafana_data:
+  redpanda_data:
 
 networks:
   iot-network:

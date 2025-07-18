@@ -33,6 +33,20 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 30s
 
+  # MQTT to Redpanda Bridge metrics
+  - job_name: 'mqtt-redpanda-bridge'
+    static_configs:
+      - targets: ['mqtt-redpanda-bridge:8083']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Redpanda metrics
+  - job_name: 'redpanda'
+    static_configs:
+      - targets: ['redpanda:9644']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
   # NOTE: Removed non-existent services:
   # - cadvisor: Not deployed in our setup
   # - node-exporter: Not deployed in our setup  

@@ -15,8 +15,9 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from queue import Queue
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 import numpy as np
+import math
 
 import paho.mqtt.client as mqtt
 import structlog
@@ -243,34 +244,318 @@ class HighPerformanceDeviceSimulator:
         
         return payload
 
+    def _get_realistic_temperature_data(self) -> Tuple[float, float]:
+        """Generate realistic temperature and humidity with daily cycles and correlations"""
+        current_time = time.time()
+        
+        # Daily temperature cycle (peak at 2 PM, low at 6 AM)
+        daily_cycle = 12 * math.sin((current_time % 86400) / 86400 * 2 * math.pi - math.pi/2)
+        
+        # Seasonal variation (simplified)
+        seasonal_cycle = 8 * math.sin((current_time % (365 * 86400)) / (365 * 86400) * 2 * math.pi)
+        
+        # Base temperature with realistic variation
+        base_temp = 22.0 + daily_cycle + seasonal_cycle + np.random.normal(0, 0.8)
+        
+        # Humidity inversely correlated with temperature
+        humidity = max(20, min(95, 75 - (base_temp - 22) * 1.5 + np.random.normal(0, 3)))
+        
+        return base_temp, humidity
+
+    def _get_realistic_pressure_data(self) -> Tuple[float, float]:
+        """Generate realistic pressure data with process cycles and system variations"""
+        current_time = time.time()
+        
+        # Process cycle (pump operation every 30 minutes)
+        process_cycle = 15 * math.sin((current_time % 1800) / 1800 * 2 * math.pi)
+        
+        # System pressure baseline with slow drift
+        system_drift = 5 * math.sin(current_time / 3600 * 2 * math.pi)
+        
+        # Main pressure reading (bar)
+        pressure = 4.5 + process_cycle + system_drift + np.random.normal(0, 0.3)
+        
+        # Differential pressure across filter/valve
+        differential = 0.8 + 0.4 * abs(process_cycle) / 15 + np.random.normal(0, 0.05)
+        
+        return pressure, differential
+
+    def _get_realistic_flow_data(self) -> Tuple[float, float]:
+        """Generate realistic flow data with demand patterns and pump cycles"""
+        current_time = time.time()
+        
+        # Demand pattern (higher flow during business hours)
+        hour_of_day = (current_time % 86400) / 3600
+        demand_factor = 1.0
+        if 6 <= hour_of_day <= 18:  # Business hours
+            demand_factor = 1.5 + 0.3 * math.sin((hour_of_day - 6) / 12 * math.pi)
+        else:
+            demand_factor = 0.4 + 0.2 * np.random.random()
+        
+        # Pump operation cycle (30-second cycles)
+        pump_cycle = max(0, math.sin((current_time % 30) / 30 * 2 * math.pi))
+        
+        # Flow rate (L/min)
+        flow_rate = 25 * demand_factor * pump_cycle + np.random.normal(0, 1.5)
+        flow_rate = max(0, flow_rate)
+        
+        # Totalizer (cumulative flow)
+        totalizer = (current_time - self.start_time) * 12.5 * demand_factor  # Approximate
+        
+        return flow_rate, totalizer
+
+    def _get_realistic_level_data(self) -> Tuple[float, float]:
+        """Generate realistic level data with tank filling/draining cycles"""
+        current_time = time.time()
+        
+        # Tank cycle (fill/drain every 45 minutes)
+        tank_cycle = (current_time % 2700) / 2700  # 0 to 1
+        
+        # Realistic tank behavior with non-linear fill/drain
+        if tank_cycle < 0.7:  # Filling phase
+            level = 20 + 60 * (tank_cycle / 0.7) ** 0.8
+        else:  # Draining phase
+            drain_progress = (tank_cycle - 0.7) / 0.3
+            level = 80 - 60 * drain_progress ** 1.5
+        
+        level = max(5, min(95, level + np.random.normal(0, 2)))
+        
+        # Secondary level sensor (slightly offset for redundancy)
+        level_2 = level + np.random.normal(0, 0.8)
+        
+        return level, level_2
+
+    def _get_vibration_data(self) -> Tuple[float, float, float]:
+        """Generate realistic vibration data with equipment health degradation"""
+        current_time = time.time()
+        
+        # Equipment aging factor (gradually increases over time)
+        aging_factor = 1.0 + (current_time - self.start_time) / (365 * 86400) * 0.3
+        
+        # Base vibration with harmonics (simulating mechanical issues)
+        base_vibration = 2.5 * aging_factor
+        harmonic_1 = 0.8 * math.sin(current_time * 50 * 2 * math.pi)  # 50 Hz
+        harmonic_2 = 0.4 * math.sin(current_time * 100 * 2 * math.pi)  # 100 Hz
+        
+        x_axis = base_vibration + harmonic_1 + np.random.normal(0, 0.3)
+        y_axis = base_vibration + harmonic_2 + np.random.normal(0, 0.3)
+        z_axis = base_vibration * 0.7 + np.random.normal(0, 0.2)
+        
+        return x_axis, y_axis, z_axis
+
+    def _get_realistic_battery_data(self) -> Tuple[float, float]:
+        """Generate realistic battery discharge with temperature effects"""
+        current_time = time.time()
+        runtime = current_time - self.start_time
+        
+        # Temperature effect on battery (get from temperature sensor if available)
+        temp_effect = 1.0
+        if hasattr(self, '_last_temperature'):
+            temp_effect = 1.0 + (self._last_temperature - 22) * 0.02
+        
+        # Realistic battery discharge curve (non-linear)
+        if runtime < 3600:  # First hour - stable
+            battery_level = 100 - runtime / 3600 * 5
+        elif runtime < 36000:  # Next 9 hours - linear
+            battery_level = 95 - (runtime - 3600) / 32400 * 80
+        else:  # Final hour - rapid decline
+            battery_level = 15 - (runtime - 36000) / 3600 * 15
+        
+        # Temperature effect
+        battery_level *= temp_effect
+        battery_level = max(0, min(100, battery_level + np.random.normal(0, 1)))
+        
+        # Battery voltage correlation
+        voltage = 3.0 + (battery_level / 100) * 1.2 + np.random.normal(0, 0.05)
+        
+        return battery_level, voltage
+
+    def _get_realistic_network_data(self) -> Tuple[float, int]:
+        """Generate realistic network data with environmental factors"""
+        current_time = time.time()
+        
+        # Time-based network quality (worse during peak hours)
+        hour_of_day = (current_time % 86400) / 3600
+        network_load = 1.0
+        if 8 <= hour_of_day <= 20:  # Peak hours
+            network_load = 1.5 + 0.3 * math.sin((hour_of_day - 8) / 12 * math.pi)
+        
+        # RSSI with realistic fading
+        base_rssi = -65  # Good signal
+        fading = 15 * math.sin(current_time / 10) * network_load
+        rssi = base_rssi + fading + np.random.normal(0, 3)
+        rssi = max(-100, min(-30, rssi))
+        
+        # Packet loss correlation with RSSI
+        if rssi > -70:
+            packet_loss = np.random.poisson(0.1)
+        elif rssi > -80:
+            packet_loss = np.random.poisson(0.5)
+        else:
+            packet_loss = np.random.poisson(2.0)
+        
+        return rssi, packet_loss
+
     def _create_high_frequency_telemetry_payload(self) -> bytes:
-        """Create optimized telemetry payload for high-frequency transmission"""
+        """Create optimized telemetry payload with realistic industrial IoT patterns"""
         payload = Payload()
         payload.timestamp = int(time.time() * 1000)
         payload.seq = self.sparkplug_seq
         
-        # Optimized sensor data generation
+        # Generate realistic sensor data based on device type
         if self.config.device_type == "temperature_sensor":
-            temp = 20.0 + 5.0 * np.sin(time.time() / 60.0) + np.random.normal(0, 0.5)
-            humidity = 50.0 + 20.0 * np.cos(time.time() / 90.0) + np.random.normal(0, 2.0)
+            temp, humidity = self._get_realistic_temperature_data()
+            self._last_temperature = temp  # Store for battery calculations
+            battery_level, battery_voltage = self._get_realistic_battery_data()
+            rssi, packet_loss = self._get_realistic_network_data()
             
             metrics_data = [
-                ("Sensors/Temperature", 10, temp),  # DOUBLE = 10
-                ("Sensors/Humidity", 10, humidity),  # DOUBLE = 10
-                ("Battery/Level", 10, max(0, 100 - (time.time() % 86400) / 864)),  # DOUBLE = 10
-                ("Device/Uptime", 8, int(time.time() - self.start_time)),  # UINT64 = 8
-                ("Network/RSSI", 9, float(30 + 20 * np.random.random())),  # FLOAT = 9
+                ("Sensors/Temperature", 10, temp),
+                ("Sensors/Humidity", 10, humidity),
+                ("Battery/Level", 10, battery_level),
+                ("Battery/Voltage", 10, battery_voltage),
+                ("Device/Uptime", 8, int(time.time() - self.start_time)),
+                ("Network/RSSI", 9, rssi),
+                ("Network/PacketLoss", 3, packet_loss),
+                ("Status/DeviceHealth", 12, "NORMAL" if battery_level > 20 else "LOW_BATTERY"),
             ]
-        else:
-            # Generic sensor data
+            
+        elif self.config.device_type == "pressure_sensor":
+            pressure, differential = self._get_realistic_pressure_data()
+            battery_level, battery_voltage = self._get_realistic_battery_data()
+            rssi, packet_loss = self._get_realistic_network_data()
+            
             metrics_data = [
-                ("Sensors/Value1", 10, 50.0 + 25.0 * np.sin(time.time() / 30.0)),  # DOUBLE = 10
-                ("Sensors/Value2", 10, 25.0 + 10.0 * np.cos(time.time() / 45.0)),  # DOUBLE = 10
-                ("Battery/Level", 10, max(0, 100 - (time.time() % 86400) / 864)),  # DOUBLE = 10
-                ("Device/Uptime", 8, int(time.time() - self.start_time)),  # UINT64 = 8
-                ("Network/RSSI", 9, float(30 + 20 * np.random.random())),  # FLOAT = 9
+                ("Sensors/Pressure", 10, pressure),
+                ("Sensors/DifferentialPressure", 10, differential),
+                ("Battery/Level", 10, battery_level),
+                ("Battery/Voltage", 10, battery_voltage),
+                ("Device/Uptime", 8, int(time.time() - self.start_time)),
+                ("Network/RSSI", 9, rssi),
+                ("Network/PacketLoss", 3, packet_loss),
+                ("Status/DeviceHealth", 12, "NORMAL" if pressure > 1.0 else "LOW_PRESSURE"),
+            ]
+            
+        elif self.config.device_type == "flow_sensor":
+            flow_rate, totalizer = self._get_realistic_flow_data()
+            battery_level, battery_voltage = self._get_realistic_battery_data()
+            rssi, packet_loss = self._get_realistic_network_data()
+            
+            metrics_data = [
+                ("Sensors/FlowRate", 10, flow_rate),
+                ("Sensors/Totalizer", 10, totalizer),
+                ("Battery/Level", 10, battery_level),
+                ("Battery/Voltage", 10, battery_voltage),
+                ("Device/Uptime", 8, int(time.time() - self.start_time)),
+                ("Network/RSSI", 9, rssi),
+                ("Network/PacketLoss", 3, packet_loss),
+                ("Status/DeviceHealth", 12, "NORMAL" if flow_rate > 0 else "NO_FLOW"),
+            ]
+            
+        elif self.config.device_type == "level_sensor":
+            level, level_2 = self._get_realistic_level_data()
+            battery_level, battery_voltage = self._get_realistic_battery_data()
+            rssi, packet_loss = self._get_realistic_network_data()
+            
+            metrics_data = [
+                ("Sensors/Level", 10, level),
+                ("Sensors/LevelSecondary", 10, level_2),
+                ("Battery/Level", 10, battery_level),
+                ("Battery/Voltage", 10, battery_voltage),
+                ("Device/Uptime", 8, int(time.time() - self.start_time)),
+                ("Network/RSSI", 9, rssi),
+                ("Network/PacketLoss", 3, packet_loss),
+                ("Status/DeviceHealth", 12, "NORMAL" if 10 < level < 90 else "LEVEL_ALARM"),
+            ]
+            
+        # Industrial IoT device types
+        elif self.config.device_type == "pump_monitor":
+            # Pump monitoring with vibration and performance metrics
+            vib_x, vib_y, vib_z = self._get_vibration_data()
+            pressure, differential = self._get_realistic_pressure_data()
+            temp, _ = self._get_realistic_temperature_data()
+            
+            # Pump-specific metrics
+            pump_speed = 1750 + 100 * math.sin(time.time() / 30) + np.random.normal(0, 25)
+            power_consumption = 15.5 + pressure * 0.8 + np.random.normal(0, 0.5)
+            efficiency = max(65, min(95, 85 - (time.time() - self.start_time) / 86400 * 0.1))
+            
+            metrics_data = [
+                ("Pump/Speed", 10, pump_speed),
+                ("Pump/PowerConsumption", 10, power_consumption),
+                ("Pump/Efficiency", 10, efficiency),
+                ("Pump/DischargePresssure", 10, pressure),
+                ("Pump/Temperature", 10, temp),
+                ("Vibration/X", 10, vib_x),
+                ("Vibration/Y", 10, vib_y),
+                ("Vibration/Z", 10, vib_z),
+                ("Device/Uptime", 8, int(time.time() - self.start_time)),
+                ("Status/DeviceHealth", 12, "NORMAL" if efficiency > 70 else "MAINTENANCE_REQUIRED"),
+            ]
+            
+        elif self.config.device_type == "compressor_monitor":
+            # Compressor monitoring with advanced analytics
+            vib_x, vib_y, vib_z = self._get_vibration_data()
+            pressure, differential = self._get_realistic_pressure_data()
+            temp, _ = self._get_realistic_temperature_data()
+            
+            # Compressor-specific metrics
+            discharge_pressure = pressure * 4 + np.random.normal(0, 0.2)
+            compression_ratio = discharge_pressure / pressure
+            oil_temperature = temp + 25 + np.random.normal(0, 2)
+            load_factor = 45 + 35 * math.sin(time.time() / 120) + np.random.normal(0, 5)
+            
+            metrics_data = [
+                ("Compressor/DischargePressure", 10, discharge_pressure),
+                ("Compressor/CompressionRatio", 10, compression_ratio),
+                ("Compressor/OilTemperature", 10, oil_temperature),
+                ("Compressor/LoadFactor", 10, load_factor),
+                ("Vibration/X", 10, vib_x),
+                ("Vibration/Y", 10, vib_y),
+                ("Vibration/Z", 10, vib_z),
+                ("Device/Uptime", 8, int(time.time() - self.start_time)),
+                ("Status/DeviceHealth", 12, "NORMAL" if oil_temperature < 85 else "HIGH_TEMPERATURE"),
+            ]
+            
+        elif self.config.device_type == "motor_monitor":
+            # Motor monitoring with electrical and mechanical parameters
+            vib_x, vib_y, vib_z = self._get_vibration_data()
+            temp, _ = self._get_realistic_temperature_data()
+            
+            # Motor-specific metrics
+            motor_current = 8.2 + 2.1 * math.sin(time.time() / 45) + np.random.normal(0, 0.3)
+            voltage = 380 + 15 * math.sin(time.time() / 60) + np.random.normal(0, 2)
+            power_factor = 0.85 + 0.1 * math.sin(time.time() / 90) + np.random.normal(0, 0.02)
+            bearing_temp = temp + 15 + np.random.normal(0, 1.5)
+            
+            metrics_data = [
+                ("Motor/Current", 10, motor_current),
+                ("Motor/Voltage", 10, voltage),
+                ("Motor/PowerFactor", 10, power_factor),
+                ("Motor/BearingTemperature", 10, bearing_temp),
+                ("Vibration/X", 10, vib_x),
+                ("Vibration/Y", 10, vib_y),
+                ("Vibration/Z", 10, vib_z),
+                ("Device/Uptime", 8, int(time.time() - self.start_time)),
+                ("Status/DeviceHealth", 12, "NORMAL" if bearing_temp < 75 else "BEARING_OVERHEATING"),
+            ]
+            
+        else:
+            # Default industrial sensor with basic patterns
+            temp, humidity = self._get_realistic_temperature_data()
+            battery_level, battery_voltage = self._get_realistic_battery_data()
+            rssi, packet_loss = self._get_realistic_network_data()
+            
+            metrics_data = [
+                ("Sensors/PrimaryValue", 10, 50.0 + 25.0 * math.sin(time.time() / 30.0)),
+                ("Sensors/SecondaryValue", 10, 25.0 + 10.0 * math.cos(time.time() / 45.0)),
+                ("Battery/Level", 10, battery_level),
+                ("Device/Uptime", 8, int(time.time() - self.start_time)),
+                ("Network/RSSI", 9, rssi),
+                ("Status/DeviceHealth", 12, "NORMAL"),
             ]
         
+        # Build protobuf payload
         for name, datatype, value in metrics_data:
             metric = payload.metrics.add()
             metric.name = name
@@ -285,6 +570,10 @@ class HighPerformanceDeviceSimulator:
                 metric.int_value = int(value)
             elif datatype == 9:  # FLOAT
                 metric.float_value = float(value)
+            elif datatype == 12:  # STRING
+                metric.string_value = str(value)
+            elif datatype == 11:  # BOOLEAN
+                metric.boolean_value = bool(value)
         
         self.sparkplug_seq += 1
         return payload.SerializeToString()
@@ -461,7 +750,16 @@ def create_device_config() -> DeviceConfig:
     device_count = int(os.getenv("DEVICE_COUNT", "1"))
     device_index = int(os.getenv("DEVICE_INDEX", "0"))
     
-    device_types = ["temperature_sensor", "pressure_sensor", "flow_sensor", "level_sensor"]
+    # Enhanced device types with realistic sensor patterns and industrial IoT scenarios
+    device_types = [
+        "temperature_sensor",    # Environmental monitoring with daily cycles
+        "pressure_sensor",       # Process control with system variations 
+        "flow_sensor",          # Demand-based flow patterns
+        "level_sensor",         # Tank fill/drain cycles
+        "pump_monitor",         # Industrial pump monitoring
+        "compressor_monitor",   # Compressor performance analytics
+        "motor_monitor",        # Motor electrical and mechanical monitoring
+    ]
     device_type = device_types[device_index % len(device_types)]
     
     # HARDCODED VALUES FOR 100 MSG/SEC - NO MORE ENV VARIABLE ISSUES!
@@ -501,8 +799,9 @@ def main():
         import multiprocessing
         
         def run_device(device_index):
+            # Set the device index environment variable for this process
+            os.environ['DEVICE_INDEX'] = str(device_index)
             device_config = create_device_config()
-            device_config.device_id = f"device-{device_config.device_type}-{device_index:03d}"
             
             simulator = HighPerformanceDeviceSimulator(device_config)
             simulator.run()
