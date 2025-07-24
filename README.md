@@ -16,42 +16,62 @@ Unlike standard LwM2M implementations that use CoAP over UDP, this project imple
 │ ┌─────────────────────┐ │    │                  │    │ │   LwM2M Server      │ │
 │ │    LwM2M over      │◄┼────┼── MQTT Topics ───┼────┤ │ (MQTT Subscriber)   │ │
 │ │    MQTT Transport  │ │    │  lwm2m/{id}/reg  │    │ │ Device Management   │ │
-│ └─────────────────────┘ │    │  lwm2m/{id}/upd  │    │ └─────────────────────┘ │
-│ ┌─────────────────────┐ │    │                  │    │ ┌─────────────────────┐ │
-│ │   Sparkplug B      │◄┼────┼── MQTT Topics ───┼────┤ │  Sparkplug Host     │ │
-│ │   Telemetry        │ │    │  spBv1.0/IIoT/*  │    │ │ Telemetry Processor │ │
+│ └─────────────────────┘ │    │  lwm2m/{id}/upd  │    │ │ ┌─────────────────┐ │ │
+│ ┌─────────────────────┐ │    │                  │    │ │ │ HTTP API        │ │ │
+│ │   Sparkplug B      │◄┼────┼── MQTT Topics ───┼────┤ │ │ │ /api/events    │ │ │
+│ │   Telemetry        │ │    │  spBv1.0/IIoT/*  │    │ │ └─────────────────┘ │ │
 │ └─────────────────────┘ │    │                  │    │ └─────────────────────┘ │
-│                         │    │   Single TLS     │    │                         │
-│      Same Device        │    │   Connection     │    │  ┌─────────────────────┐ │
-│      Same Connection    │    │                  │    │  │ Prometheus/Grafana  │ │
-│                         │    │                  │    │  │ Real-time Dashboard │ │
+│                         │    │   Single TLS     │    │ ┌─────────────────────┐ │
+│      Same Device        │    │   Connection     │    │ │  Sparkplug Host     │ │
+│      Same Connection    │    │                  │    │ │ Telemetry Processor │ │
+│                         │    │                  │    │ └─────────────────────┘ │
 └─────────────────────────┘    └──────────────────┘    └──┴─────────────────────┴─┘
+                                        │
+                                        ▼
+┌─────────────────────────┐    ┌──────────────────┐    ┌─────────────────────────┐
+│   Streaming Platform    │    │  Data Processing │    │   Monitoring & Analytics│
+│                         │    │                  │    │                         │
+│ ┌─────────────────────┐ │    │ ┌───────────────┐ │    │ ┌─────────────────────┐ │
+│ │  Redpanda Connect   │ │    │ │   Redpanda    │ │    │ │     Grafana         │ │
+│ │  (HTTP Source)      │◄┼────┼─┤  (Kafka API)  │◄┼────┼─┤   Dashboards        │ │
+│ │  /api/events        │ │    │ │               │ │    │ │ • Data Flow Pipeline│ │
+│ └─────────────────────┘ │    │ └───────────────┘ │    │ │ • HTTP Bridge       │ │
+│                         │    │                  │    │ │ • Detailed Analysis │ │
+│ ┌─────────────────────┐ │    │ ┌───────────────┐ │    │ └─────────────────────┘ │
+│ │  MQTT-Redpanda      │ │    │ │   Prometheus  │ │    │ ┌─────────────────────┐ │
+│ │  Bridge (Fallback)  │◄┼────┼─┤   Metrics     │◄┼────┼─┤   Real-time Alerts  │ │
+│ └─────────────────────┘ │    │ └───────────────┘ │    │ └─────────────────────┘ │
+└─────────────────────────┘    └──────────────────┘    └─────────────────────────┘
 ```
 
 ## ✅ **Proven Results**
 
 ### **🚀 High-Performance Unified Operation:**
-- **2 Devices** using **BOTH protocols simultaneously**
-- **Total Throughput**: **200+ messages/second**
-  - **Sparkplug B Telemetry**: 95 msg/sec per device (190+ msg/sec total)
-  - **LwM2M Device Management**: 5 msg/sec per device (10 msg/sec total)
-- **Same MQTT Connection**: Single TLS session for both protocols per device
+- **7+ IoT Devices** using **BOTH protocols simultaneously**
+- **Total Throughput**: **440+ requests/second** via HTTP connector
+  - **LwM2M Events**: 440 req/sec via HTTP endpoint
+  - **Sparkplug B Telemetry**: 95 msg/sec per device via MQTT bridge
+  - **LwM2M Device Management**: 5 msg/sec per device via MQTT
+- **Dual Data Paths**: HTTP connector (primary) + MQTT bridge (fallback)
 
 ### **Dashboard Metrics:**
-- ✅ **LwM2M Active Devices**: 2 (device-temperature_sensor-000, device-temperature_sensor-001)
-- ✅ **Sparkplug B Online Devices**: 2  
-- ✅ **Message Flow Rates**: **200+ msg/sec** sustained, stable operation
-- ✅ **Protocol Coexistence**: No conflicts or interference at high rates
-- ✅ **Rock-Solid Reliability**: Hardcoded configuration eliminates env variable issues
+- ✅ **LwM2M HTTP Endpoint**: 440 req/sec sustained throughput
+- ✅ **Total Events Processed**: 309,000+ events via HTTP connector
+- ✅ **HTTP Response Time**: 4.75ms median, excellent performance
+- ✅ **Data Flow Pipeline**: Real-time monitoring from LwM2M → Redpanda Connect → Redpanda
+- ✅ **Comprehensive Monitoring**: 3 differentiated Grafana dashboards
+- ✅ **Rock-Solid Reliability**: Volume mounts enable live code updates
 
 ## Key Features
 
 - 🔄 **Unified Connection**: Single MQTT TLS session for both protocols
 - 🚀 **Custom LwM2M Transport**: LwM2M semantics over MQTT (not standard CoAP/UDP)
 - 📊 **Protocol Buffers**: Sparkplug B uses protobuf for compact binary format
-- 📈 **Scale Testing**: Proven stable operation, configurable device counts
-- 📊 **Real-time Monitoring**: Live dashboard with Prometheus + Grafana
+- 🔌 **HTTP Connector**: LwM2M events streaming via HTTP endpoint to Redpanda
+- 📈 **Dual Data Paths**: HTTP connector (primary) + MQTT bridge (fallback)
+- 📊 **Comprehensive Monitoring**: 3 differentiated Grafana dashboards with real-time metrics
 - 🐳 **Fully Containerized**: No host dependencies, Docker-based deployment
+- 🔄 **Live Code Updates**: Volume mounts enable development without rebuilds
 
 ## Quick Start
 
@@ -85,11 +105,12 @@ docker-compose down
 - **Innovation**: Handles both LwM2M and Sparkplug B message flows
 
 ### 2. **Custom LwM2M Server** 
-- **Port**: 8080 (REST API + Metrics)
-- **Implementation**: Python-based MQTT subscriber
-- **Innovation**: LwM2M semantics over MQTT transport (not CoAP/UDP)
-- **Features**: Device registration, lifecycle management, command/response
+- **Port**: 8080 (REST API + Metrics + HTTP Events)
+- **Implementation**: Python-based MQTT subscriber with HTTP API
+- **Innovation**: LwM2M semantics over MQTT transport + HTTP events streaming
+- **Features**: Device registration, lifecycle management, command/response, HTTP events endpoint
 - **Topics**: `lwm2m/{device_id}/reg`, `lwm2m/{device_id}/update`, `lwm2m/{device_id}/resp/*`
+- **HTTP Endpoint**: `/api/events` - Real-time events for Redpanda Connect
 
 ### 3. **Sparkplug B Host Application**
 - **Port**: 8081 (Metrics endpoint)
@@ -106,14 +127,28 @@ docker-compose down
   - Realistic sensor data generation
   - Configurable message rates
 
-### 5. **Monitoring & Observability**
+### 5. **Redpanda Connect (HTTP Source)**
+- **Port**: 8087 (HTTP API + Metrics)
+- **Implementation**: Benthos-based HTTP source connector
+- **Role**: Polls LwM2M server `/api/events` endpoint and streams to Redpanda
+- **Features**: HTTP polling, data transformation, Kafka output
+- **Configuration**: `redpanda-connect-config.yaml`
+- **Topic**: `iot.telemetry.lwm2m.http`
+
+### 6. **Redpanda (Kafka-compatible Streaming)**
+- **Ports**: 9092 (Kafka API), 8084 (Admin API), 8085 (Schema Registry)
+- **Role**: High-performance streaming platform for IoT data
+- **Features**: Kafka-compatible API, schema evolution, low latency
+- **Topics**: `iot.telemetry.lwm2m.http`, `iot.telemetry.sparkplug.data`
+
+### 7. **Comprehensive Monitoring & Observability**
 - **Prometheus**: `http://localhost:9090` (metrics collection)
-- **Grafana Dashboard**: `http://localhost:3000` (admin/admin)
-- **Pre-configured Panels**:
-  - Active Devices Overview (LwM2M + Sparkplug B)
-  - Message Rate Tracking
-  - Protocol-specific Activity
-  - Service Health Monitoring
+- **Grafana Dashboards**: `http://localhost:3000` (admin/admin)
+- **Three Specialized Dashboards**:
+  - **Data Flow Pipeline**: Complete pipeline monitoring with real-time metrics
+  - **LwM2M HTTP Bridge Overview**: High-level metrics (95th percentile)
+  - **LwM2M HTTP Connector Detailed Analysis**: Comprehensive monitoring (median metrics)
+- **Real-time Metrics**: HTTP request rates, response times, data sizes, throughput
 
 ## Configuration & Scaling
 
