@@ -44,23 +44,25 @@ Unlike standard LwM2M implementations that use CoAP over UDP, this project imple
 └─────────────────────────┘    └──────────────────┘    └─────────────────────────┘
 ```
 
-## ✅ **Proven Results**
+## ✅ **Current Test Results**
 
-### **🚀 High-Performance Unified Operation:**
+### **🚀 Demonstrated Performance (Test Environment):**
 - **7+ IoT Devices** using **BOTH protocols simultaneously**
-- **Total Throughput**: **440+ requests/second** via HTTP connector
-  - **LwM2M Events**: 440 req/sec via HTTP endpoint
-  - **Sparkplug B Telemetry**: 95 msg/sec per device via MQTT bridge
-  - **LwM2M Device Management**: 5 msg/sec per device via MQTT
+- **Current Test Throughput**: **440+ requests/second** via HTTP connector
+  - **LwM2M Events**: 440 req/sec via HTTP endpoint (test configuration)
+  - **Sparkplug B Telemetry**: 95 msg/sec per device via MQTT bridge (test configuration)
+  - **LwM2M Device Management**: 5 msg/sec per device via MQTT (test configuration)
 - **Dual Data Paths**: HTTP connector (primary) + MQTT bridge (fallback)
 
-### **Dashboard Metrics:**
-- ✅ **LwM2M HTTP Endpoint**: 440 req/sec sustained throughput
-- ✅ **Total Events Processed**: 309,000+ events via HTTP connector
-- ✅ **HTTP Response Time**: 4.75ms median, excellent performance
+### **Current Test Metrics:**
+- ✅ **LwM2M HTTP Endpoint**: 440 req/sec sustained throughput (test environment)
+- ✅ **Total Events Processed**: 309,000+ events via HTTP connector (ongoing test)
+- ✅ **HTTP Response Time**: 4.75ms median, excellent performance (current test)
 - ✅ **Data Flow Pipeline**: Real-time monitoring from LwM2M → Redpanda Connect → Redpanda
 - ✅ **Comprehensive Monitoring**: 3 differentiated Grafana dashboards
 - ✅ **Rock-Solid Reliability**: Volume mounts enable live code updates
+
+> **Note**: These are current test results from a development environment. The platform is designed to scale significantly beyond these test configurations. Performance will vary based on hardware, network conditions, and deployment configuration.
 
 ## Key Features
 
@@ -152,44 +154,46 @@ docker-compose down
 
 ## Configuration & Scaling
 
-### **🔧 Hardcoded High-Performance Configuration**
+### **🔧 Test Configuration (Development Environment)**
 
-**For maximum reliability, timing values are hardcoded in Python code:**
+**For reliable testing, timing values are hardcoded in Python code:**
 
 ```python
 # device-simulator/main.py - Lines 474-475
-telemetry_interval=0.0105,  # 95.24 msg/sec - HARDCODED FOR RELIABILITY
-lwm2m_interval=0.2         # 5 msg/sec - HARDCODED FOR RELIABILITY
+telemetry_interval=0.0105,  # 95.24 msg/sec - TEST CONFIGURATION
+lwm2m_interval=0.2         # 5 msg/sec - TEST CONFIGURATION
 ```
 
-**Why hardcoded?**
+**Why hardcoded for testing?**
 - ✅ **100% reliable** - Eliminates Docker environment variable caching issues
 - ✅ **Single source of truth** - No config conflicts between files
 - ✅ **Predictable performance** - Same timing every restart
-- ✅ **Proven at scale** - Tested at 200+ msg/sec sustained
+- ✅ **Consistent test results** - Reliable baseline for development and validation
 
-### **Device Count Configuration**
+### **Test Device Configuration**
 ```yaml
 # docker-compose.yml
 environment:
-  - DEVICE_COUNT=2                    # Currently: 2 devices for 200+ msg/sec
+  - DEVICE_COUNT=2                    # Test configuration: 2 devices
 ```
 
-### **Scaling Devices**
+### **Current Test Scaling**
 ```bash
-# Current: 2 devices generating 200+ msg/sec total
+# Test configuration: 2 devices generating 200+ msg/sec total
 docker-compose up -d
 
-# Each device generates:
-# - 95 Sparkplug B messages/second (telemetry)
-# - 5 LwM2M messages/second (management)
+# Each test device generates:
+# - 95 Sparkplug B messages/second (telemetry) - test configuration
+# - 5 LwM2M messages/second (management) - test configuration
 ```
 
-### **🚀 Performance Testing & Tuning**
+### **🚀 Test Performance Tuning**
 
-**To modify message rates:**
+**To modify test message rates:**
 1. **Edit `device-simulator/main.py`** (lines 474-475)
 2. **Rebuild container**: `docker-compose up -d --build device-simulator`
+
+> **Note**: These are test configurations for development and validation. Production deployments should be configured based on actual requirements, hardware capabilities, and expected load.
 
 ```python
 # Example configurations:
