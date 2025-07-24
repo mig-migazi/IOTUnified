@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
-High-Performance Unified Device Simulator
-Supports LwM2M and Sparkplug B protocols over MQTT with high throughput
+High-Performance Dual-Path Device Simulator
+Supports LwM2M (cloud) + Sparkplug B (edge) protocols over MQTT
+
+Dual-Path Architecture:
+- LwM2M over MQTT: Low-throughput device management for cloud streaming
+- Sparkplug B over MQTT: High-throughput telemetry for edge device interoperability
 """
 
 import asyncio
@@ -69,7 +73,7 @@ class DeviceConfig:
     lwm2m_interval: float
 
 class HighPerformanceDeviceSimulator:
-    """High-performance device simulator with multi-threading for scale"""
+    """High-performance dual-path device simulator with edge interoperability"""
 
     def __init__(self, config: DeviceConfig):
         self.config = config
@@ -98,7 +102,10 @@ class HighPerformanceDeviceSimulator:
         
         # Message queues for high throughput
         self.telemetry_queue = Queue(maxsize=1000)
-        self.management_queue = Queue(maxsize=100)
+        
+        # Edge interoperability: track other devices
+        self.edge_devices = {}  # Store other devices' telemetry
+        self.edge_commands = Queue(maxsize=100)  # Commands from other devices
         
         # Thread pool for message processing
         self.executor = ThreadPoolExecutor(max_workers=4)
@@ -175,7 +182,12 @@ class HighPerformanceDeviceSimulator:
             client.subscribe(lwm2m_cmd_topic)
             client.subscribe(sparkplug_cmd_topic)
             
-            self.logger.info("Subscribed to command topics")
+            # Edge interoperability: subscribe to other devices' telemetry
+            # Subscribe to all DDATA topics in the group (except our own)
+            edge_telemetry_topic = f"{self.config.sparkplug_namespace}/{self.config.group_id}/DDATA/+"
+            client.subscribe(edge_telemetry_topic)
+            
+            self.logger.info("Subscribed to command and edge telemetry topics")
         else:
             self.logger.error("MQTT connection failed", result_code=rc)
 
@@ -200,6 +212,9 @@ class HighPerformanceDeviceSimulator:
                 self._handle_lwm2m_command(topic, payload.decode('utf-8'))
             elif "DCMD" in topic:
                 self._handle_sparkplug_command(topic, payload)
+            elif "DDATA" in topic and topic != f"spBv1.0/{self.config.group_id}/DDATA/{self.config.device_id}":
+                # Edge interoperability: process other devices' telemetry
+                self._handle_edge_telemetry(topic, payload)
         except Exception as e:
             self.logger.error("Error processing command", error=str(e), topic=topic)
 
@@ -213,6 +228,94 @@ class HighPerformanceDeviceSimulator:
     def _handle_sparkplug_command(self, topic: str, payload: bytes):
         """Handle Sparkplug B command messages"""
         self.logger.info("Received Sparkplug command", topic=topic)
+
+    def _handle_edge_telemetry(self, topic: str, payload: bytes):
+        """Handle telemetry from other edge devices for interoperability"""
+        try:
+            # Parse Sparkplug B payload from other devices
+            sparkplug_payload = Payload()
+            sparkplug_payload.ParseFromString(payload)
+            
+            # Extract device ID from topic
+            parts = topic.split('/')
+            if len(parts) >= 4:
+                source_device = parts[3]
+                
+                # Store telemetry data for edge interoperability
+                self.edge_devices[source_device] = {
+                    'timestamp': sparkplug_payload.timestamp,
+                    'metrics': {},
+                    'last_seen': time.time()
+                }
+                
+                # Extract metrics for edge processing
+                for metric in sparkplug_payload.metrics:
+                    self.edge_devices[source_device]['metrics'][metric.name] = {
+                        'value': self._extract_metric_value(metric),
+                        'datatype': metric.datatype,
+                        'timestamp': metric.timestamp
+                    }
+                
+                # Edge interoperability: respond to other devices' data
+                self._process_edge_interoperability(source_device, self.edge_devices[source_device])
+                
+                self.logger.debug("Processed edge telemetry", 
+                                source_device=source_device, 
+                                metrics_count=len(sparkplug_payload.metrics))
+                
+        except Exception as e:
+            self.logger.error("Error processing edge telemetry", error=str(e), topic=topic)
+
+    def _extract_metric_value(self, metric):
+        """Extract value from Sparkplug B metric based on datatype"""
+        if metric.HasField('int_value'):
+            return metric.int_value
+        elif metric.HasField('long_value'):
+            return metric.long_value
+        elif metric.HasField('float_value'):
+            return metric.float_value
+        elif metric.HasField('double_value'):
+            return metric.double_value
+        elif metric.HasField('boolean_value'):
+            return metric.boolean_value
+        elif metric.HasField('string_value'):
+            return metric.string_value
+        else:
+            return None
+
+    def _process_edge_interoperability(self, source_device: str, device_data: dict):
+        """Process edge interoperability logic based on other devices' data"""
+        try:
+            # Example: Temperature sensor triggers pressure sensor adjustment
+            if 'temperature_sensor' in source_device and self.config.device_type == 'pressure_sensor':
+                temp_metric = device_data['metrics'].get('Temperature/Value')
+                if temp_metric and temp_metric['value'] > 30:
+                    # High temperature detected - adjust pressure setpoint
+                    self.logger.info("Edge interop: High temp detected, adjusting pressure", 
+                                   source_device=source_device, 
+                                   temperature=temp_metric['value'])
+                    # Could send command back to source device or adjust local parameters
+            
+            # Example: Flow sensor triggers pump control
+            elif 'flow_sensor' in source_device and self.config.device_type == 'pump_monitor':
+                flow_metric = device_data['metrics'].get('Flow/Rate')
+                if flow_metric and flow_metric['value'] < 10:
+                    # Low flow detected - could trigger pump speed increase
+                    self.logger.info("Edge interop: Low flow detected, considering pump adjustment", 
+                                   source_device=source_device, 
+                                   flow_rate=flow_metric['value'])
+            
+            # Example: Level sensor triggers valve control
+            elif 'level_sensor' in source_device and self.config.device_type in ['valve_controller', 'pump_monitor']:
+                level_metric = device_data['metrics'].get('Level/Percentage')
+                if level_metric and level_metric['value'] > 80:
+                    # High level detected - could trigger valve opening or pump shutdown
+                    self.logger.info("Edge interop: High level detected, considering valve/pump action", 
+                                   source_device=source_device, 
+                                   level=level_metric['value'])
+                    
+        except Exception as e:
+            self.logger.error("Error in edge interoperability processing", error=str(e))
 
     def _create_sparkplug_birth_payload(self) -> Payload:
         """Create Sparkplug B birth certificate payload"""
@@ -626,8 +729,8 @@ class HighPerformanceDeviceSimulator:
                 time.sleep(1)  # Backoff on error
 
     def lwm2m_management_thread(self):
-        """LwM2M device management thread"""
-        self.logger.info("Starting LwM2M management thread", 
+        """LwM2M device management thread with bulk messaging for high throughput"""
+        self.logger.info("Starting LwM2M bulk management thread", 
                         interval=self.config.lwm2m_interval)
         
         # Wait for MQTT connection
@@ -643,11 +746,17 @@ class HighPerformanceDeviceSimulator:
         self.lwm2m_registered = True
         self.logger.info("LwM2M device registered")
         
-        # Management update loop
+        # Bulk management update loop
+        bulk_operations = []
+        last_bulk_send = time.time()
+        
         while self.running and self.mqtt_connected:
             try:
-                # Send device update
-                update_data = {
+                current_time = time.time()
+                
+                # Create individual operation
+                operation = {
+                    "operation": "update",
                     "endpoint": self.config.device_id,
                     "lifetime": 3600,
                     "objects": {
@@ -658,21 +767,46 @@ class HighPerformanceDeviceSimulator:
                             }
                         }
                     },
-                    "timestamp": int(time.time() * 1000)
+                    "timestamp": int(current_time * 1000)
                 }
                 
-                update_topic = f"lwm2m/{self.config.device_id}/update"
-                result = self.mqtt_client.publish(update_topic, json.dumps(update_data))
+                # Add to bulk operations
+                bulk_operations.append(operation)
                 
-                if result.rc == mqtt.MQTT_ERR_SUCCESS:
-                    self.logger.debug("LwM2M update sent")
-                else:
-                    self.logger.warning("LwM2M update failed", error_code=result.rc)
+                # Send bulk message when we have enough operations or time has passed
+                bulk_size = 10  # Send 10 operations at once
+                bulk_interval = 0.05  # Or every 50ms
+                
+                if (len(bulk_operations) >= bulk_size or 
+                    (current_time - last_bulk_send) >= bulk_interval):
+                    
+                    # Create bulk message
+                    bulk_data = {
+                        "bulk_operations": bulk_operations,
+                        "device_id": self.config.device_id,
+                        "bulk_size": len(bulk_operations),
+                        "timestamp": int(current_time * 1000)
+                    }
+                    
+                    # Send bulk message
+                    bulk_topic = f"lwm2m/{self.config.device_id}/bulk"
+                    result = self.mqtt_client.publish(bulk_topic, json.dumps(bulk_data))
+                    
+                    if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                        self.logger.debug("LwM2M bulk update sent", 
+                                        bulk_size=len(bulk_operations),
+                                        operations_per_sec=len(bulk_operations) / (current_time - last_bulk_send))
+                    else:
+                        self.logger.warning("LwM2M bulk update failed", error_code=result.rc)
+                    
+                    # Reset for next bulk send
+                    bulk_operations = []
+                    last_bulk_send = current_time
                 
                 time.sleep(self.config.lwm2m_interval)
                 
             except Exception as e:
-                self.logger.error("Error in LwM2M thread", error=str(e))
+                self.logger.error("Error in LwM2M bulk thread", error=str(e))
                 time.sleep(5)
 
     def run(self):
@@ -779,8 +913,8 @@ def create_device_config() -> DeviceConfig:
         lwm2m_server_port=int(os.getenv("LWM2M_SERVER_PORT", "8080")),
         group_id=os.getenv("GROUP_ID", "IIoT"),
         sparkplug_namespace=os.getenv("SPARKPLUG_NAMESPACE", "spBv1.0"),
-        telemetry_interval=0.0105,  # 95.24 msg/sec - HARDCODED FOR RELIABILITY
-        lwm2m_interval=0.2         # 5 msg/sec - HARDCODED FOR RELIABILITY
+        telemetry_interval=0.001,   # 1000 msg/sec - CRANKED UP!
+        lwm2m_interval=0.005       # 200 msg/sec - GOING FOR BROKE!
     )
 
 def main():

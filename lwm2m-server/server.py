@@ -51,6 +51,11 @@ http_request_duration = Histogram('lwm2m_http_request_duration_seconds', 'HTTP r
 events_endpoint_calls = Counter('lwm2m_events_endpoint_calls_total', 'Total calls to events endpoint')
 events_data_size = Histogram('lwm2m_events_data_size_bytes', 'Size of events data returned', ['endpoint'])
 
+# Bulk operation metrics
+bulk_operations = Counter('lwm2m_bulk_operations_total', 'Total bulk operations received')
+bulk_operations_size = Histogram('lwm2m_bulk_operations_size', 'Number of operations per bulk message')
+bulk_operations_throughput = Counter('lwm2m_bulk_operations_throughput_total', 'Total operations processed via bulk')
+
 class LwM2MServer:
     def __init__(self):
         self.devices = {}
@@ -117,10 +122,12 @@ class LwM2MServer:
     def _on_mqtt_connect(self, client, userdata, flags, rc):
         """MQTT connection callback"""
         if rc == 0:
-            logger.info("MQTT connected")
+            logger.info("MQTT connected", result_code=rc)
+            
             # Subscribe to LwM2M topics
             client.subscribe("lwm2m/+/reg")      # Device registration
             client.subscribe("lwm2m/+/update")   # Device updates
+            client.subscribe("lwm2m/+/bulk")     # Bulk operations for high throughput
             client.subscribe("lwm2m/+/resp/+")   # Command responses
             client.subscribe("lwm2m/+/dereg")    # Device deregistration
         else:
@@ -142,6 +149,8 @@ class LwM2MServer:
                 self._handle_device_registration(device_id, payload)
             elif message_type == "update":
                 self._handle_device_update(device_id, payload)
+            elif message_type == "bulk":
+                self._handle_bulk_operations(device_id, payload)
             elif message_type == "resp":
                 if len(topic_parts) > 3:
                     command_type = topic_parts[3]
@@ -226,6 +235,89 @@ class LwM2MServer:
             
         except Exception as e:
             logger.error("Error handling device update", device_id=device_id, error=str(e))
+
+    def _handle_bulk_operations(self, device_id, payload):
+        """Handle bulk operations for high throughput"""
+        try:
+            if device_id not in self.devices:
+                logger.warning("Bulk operations from unregistered device", device_id=device_id)
+                return
+                
+            bulk_data = json.loads(payload)
+            bulk_operations_list = bulk_data.get("bulk_operations", [])
+            bulk_size = len(bulk_operations_list)
+            
+            # Track bulk operation metrics
+            bulk_operations.inc()
+            bulk_operations_size.observe(bulk_size)
+            bulk_operations_throughput.inc(bulk_size)
+            
+            device = self.devices[device_id]
+            processed_operations = 0
+            
+            # Process each operation in the bulk message
+            for operation in bulk_operations_list:
+                try:
+                    op_type = operation.get("operation", "update")
+                    
+                    if op_type == "update":
+                        # Update device information
+                        if "objects" in operation:
+                            device["objects"].update(operation["objects"])
+                        processed_operations += 1
+                        
+                    elif op_type == "read":
+                        # Handle bulk read operations
+                        processed_operations += 1
+                        
+                    elif op_type == "write":
+                        # Handle bulk write operations
+                        processed_operations += 1
+                        
+                    elif op_type == "execute":
+                        # Handle bulk execute operations
+                        processed_operations += 1
+                        
+                except Exception as e:
+                    logger.error("Error processing bulk operation", 
+                               device_id=device_id, 
+                               operation=operation.get("operation"), 
+                               error=str(e))
+            
+            # Update device status
+            device["last_update"] = datetime.now().isoformat()
+            device["status"] = "active"
+            
+            # Increment device updates for each processed operation
+            device_updates.inc(processed_operations)
+            
+            logger.debug("Bulk operations processed", 
+                        device_id=device_id, 
+                        bulk_size=bulk_size, 
+                        processed=processed_operations)
+            
+            # Emit WebSocket event for bulk operations
+            bulk_event_data = {
+                "device_id": device_id,
+                "bulk_size": bulk_size,
+                "processed_operations": processed_operations,
+                "timestamp": device["last_update"]
+            }
+            self.emit_device_event('bulk_operations_processed', bulk_event_data)
+            
+            # Send bulk response
+            response = {
+                "status": "bulk_processed",
+                "bulk_size": bulk_size,
+                "processed_operations": processed_operations,
+                "timestamp": device["last_update"]
+            }
+            
+            response_topic = f"lwm2m/{device_id}/resp/bulk"
+            self.mqtt_client.publish(response_topic, json.dumps(response))
+            
+        except Exception as e:
+            logger.error("Error handling bulk operations", device_id=device_id, error=str(e))
 
     def _handle_command_response(self, device_id, command_type, payload):
         """Handle command responses from devices"""

@@ -4,6 +4,7 @@ input:
     verb: GET
     headers:
       Content-Type: "application/json"
+    timeout: "1s"       # Faster timeout for quick polling
 
 output:
   kafka:
@@ -11,10 +12,11 @@ output:
       - "redpanda:29092"
     topic: "iot.telemetry.lwm2m.http"
     key: "${! json(\"device_id\") }"
-    max_in_flight: 1
+    max_in_flight: 10   # Increased from 1 to 10
     timeout: "5s"
     retry_as_batch: true
     max_retries: 3
+    compression: "snappy"  # Compress for faster transmission
 
 logger:
   level: INFO
