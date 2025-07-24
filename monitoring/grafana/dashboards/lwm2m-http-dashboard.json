@@ -8,7 +8,7 @@
   "id": null,
   "links": [],
   "liveNow": true,
-  "title": "🏭 Industrial Sensor Data - Per Device",
+  "title": "🔍 LwM2M HTTP Connector - Detailed Analysis",
   "panels": [
     {
       "datasource": {
@@ -18,35 +18,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "mode": "thresholds"
           },
           "mappings": [],
           "thresholds": {
@@ -57,32 +29,37 @@
                 "value": null
               },
               {
+                "color": "yellow",
+                "value": 100
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 500
               }
             ]
           },
-          "unit": "celsius"
+          "unit": "reqps"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 6,
         "x": 0,
         "y": 0
       },
       "id": 1,
       "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
         },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
+        "textMode": "auto"
       },
       "targets": [
         {
@@ -90,31 +67,13 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sparkplug_telemetry_value{metric_name=\"temperature\"}",
-          "legendFormat": "{{device_id}} - Temperature",
+          "expr": "rate(lwm2m_events_endpoint_calls_total[5m])",
+          "legendFormat": "Events Endpoint Calls/sec",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sparkplug_telemetry_value{metric_name=\"oil_temperature\"}",
-          "legendFormat": "{{device_id}} - Oil Temp",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sparkplug_telemetry_value{metric_name=\"bearing_temperature\"}",
-          "legendFormat": "{{device_id}} - Bearing Temp",
-          "refId": "C"
         }
       ],
-      "title": "🌡️ Temperature Sensors",
-      "type": "timeseries"
+      "title": "📡 Events Endpoint Rate (req/s)",
+      "type": "stat"
     },
     {
       "datasource": {
@@ -124,35 +83,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "mode": "thresholds"
           },
           "mappings": [],
           "thresholds": {
@@ -163,32 +94,37 @@
                 "value": null
               },
               {
+                "color": "yellow",
+                "value": 100
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 500
               }
             ]
           },
-          "unit": "pressurebar"
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 6,
+        "x": 6,
         "y": 0
       },
       "id": 2,
       "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
         },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
+        "textMode": "auto"
       },
       "targets": [
         {
@@ -196,31 +132,13 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sparkplug_telemetry_value{metric_name=\"pressure\"}",
-          "legendFormat": "{{device_id}} - Pressure",
+          "expr": "lwm2m_events_endpoint_calls_total",
+          "legendFormat": "Total Events Endpoint Calls",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sparkplug_telemetry_value{metric_name=\"differential_pressure\"}",
-          "legendFormat": "{{device_id}} - Diff Pressure",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sparkplug_telemetry_value{metric_name=\"discharge_pressure\"}",
-          "legendFormat": "{{device_id}} - Discharge Pressure",
-          "refId": "C"
         }
       ],
-      "title": "📊 Pressure Sensors",
-      "type": "timeseries"
+      "title": "📊 Total Events Endpoint Calls",
+      "type": "stat"
     },
     {
       "datasource": {
@@ -230,35 +148,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "mode": "thresholds"
           },
           "mappings": [],
           "thresholds": {
@@ -269,32 +159,37 @@
                 "value": null
               },
               {
+                "color": "yellow",
+                "value": 10
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 50
               }
             ]
           },
-          "unit": "litrmin"
+          "unit": "ms"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 8
+        "w": 6,
+        "x": 12,
+        "y": 0
       },
       "id": 3,
       "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
         },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
+        "textMode": "auto"
       },
       "targets": [
         {
@@ -302,22 +197,13 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sparkplug_telemetry_value{metric_name=\"flow_rate\"}",
-          "legendFormat": "{{device_id}} - Flow Rate",
+          "expr": "histogram_quantile(0.50, rate(lwm2m_http_request_duration_seconds_bucket{endpoint=\"events\"}[5m])) * 1000",
+          "legendFormat": "Median Response Time (ms)",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sparkplug_telemetry_value{metric_name=\"level\"} / 100",
-          "legendFormat": "{{device_id}} - Level (m)",
-          "refId": "B"
         }
       ],
-      "title": "💧 Flow & Level Sensors",
-      "type": "timeseries"
+      "title": "⏱️ Median Response Time",
+      "type": "stat"
     },
     {
       "datasource": {
@@ -327,35 +213,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "mode": "thresholds"
           },
           "mappings": [],
           "thresholds": {
@@ -366,32 +224,37 @@
                 "value": null
               },
               {
+                "color": "yellow",
+                "value": 100
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 500
               }
             ]
           },
-          "unit": "amp"
+          "unit": "s"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 8
+        "w": 6,
+        "x": 18,
+        "y": 0
       },
       "id": 4,
       "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
         },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
+        "textMode": "auto"
       },
       "targets": [
         {
@@ -399,31 +262,13 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sparkplug_telemetry_value{metric_name=\"motor_current\"}",
-          "legendFormat": "{{device_id}} - Motor Current",
+          "expr": "histogram_quantile(0.50, rate(lwm2m_events_data_size_bytes_bucket[5m]))",
+          "legendFormat": "Median Data Size",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sparkplug_telemetry_value{metric_name=\"motor_voltage\"}",
-          "legendFormat": "{{device_id}} - Motor Voltage",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sparkplug_telemetry_value{metric_name=\"power_factor\"}",
-          "legendFormat": "{{device_id}} - Power Factor",
-          "refId": "C"
         }
       ],
-      "title": "⚡ Motor Electrical Data",
-      "type": "timeseries"
+      "title": "📊 Median Data Size",
+      "type": "stat"
     },
     {
       "datasource": {
@@ -448,12 +293,12 @@
               "vis": false
             },
             "lineInterpolation": "linear",
-            "lineWidth": 2,
+            "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -485,7 +330,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 16
+        "y": 8
       },
       "id": 5,
       "options": {
@@ -505,8 +350,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sparkplug_telemetry_value{metric_name=\"vibration_x\"}",
-          "legendFormat": "{{device_id}} - Vibration X",
+          "expr": "rate(lwm2m_events_endpoint_calls_total[5m])",
+          "legendFormat": "Events Endpoint Calls/sec",
           "refId": "A"
         },
         {
@@ -514,21 +359,267 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sparkplug_telemetry_value{metric_name=\"vibration_y\"}",
-          "legendFormat": "{{device_id}} - Vibration Y",
+          "expr": "histogram_quantile(0.95, rate(lwm2m_http_request_duration_seconds_bucket{endpoint=\"events\"}[5m])) * 1000",
+          "legendFormat": "95th Percentile Response Time (ms)",
           "refId": "B"
+        }
+      ],
+      "title": "📈 Request Rate vs Response Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, rate(lwm2m_command_latency_seconds_bucket[5m]))",
+          "legendFormat": "95th Percentile",
+          "refId": "A"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sparkplug_telemetry_value{metric_name=\"vibration_z\"}",
-          "legendFormat": "{{device_id}} - Vibration Z",
-          "refId": "C"
+          "expr": "histogram_quantile(0.50, rate(lwm2m_command_latency_seconds_bucket[5m]))",
+          "legendFormat": "Median",
+          "refId": "B"
         }
       ],
-      "title": "🔧 Vibration Analysis",
+      "title": "⏱️ Command Latency Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "lwm2m_active_devices",
+          "legendFormat": "{{device_id}}",
+          "refId": "A"
+        }
+      ],
+      "title": "📊 Device Distribution",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(lwm2m_device_registrations_total[1h])",
+          "legendFormat": "Registrations",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(lwm2m_device_updates_total[1h])",
+          "legendFormat": "Updates",
+          "refId": "B"
+        }
+      ],
+      "title": "📊 Hourly Activity",
       "type": "timeseries"
     },
     {
@@ -546,81 +637,16 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 90
-              },
-              {
-                "color": "green",
-                "value": 95
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 16
-      },
-      "id": 6,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "values": false,
-          "calcs": ["lastNotNull"],
-          "fields": ""
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sparkplug_telemetry_value{metric_name=\"battery_level\"}",
-          "legendFormat": "{{device_id}}",
-          "refId": "A"
-        }
-      ],
-      "title": "🔋 Device Battery Levels",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
                 "color": "green",
                 "value": null
               },
               {
                 "color": "yellow",
-                "value": 5
+                "value": 1000
               },
               {
                 "color": "red",
-                "value": 7
+                "value": 5000
               }
             ]
           },
@@ -629,12 +655,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 12,
+        "h": 8,
+        "w": 6,
         "x": 0,
         "y": 24
       },
-      "id": 7,
+      "id": 9,
       "options": {
         "colorMode": "background",
         "graphMode": "area",
@@ -653,12 +679,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sparkplug_devices_online",
-          "legendFormat": "Industrial Devices Online",
+          "expr": "lwm2m_device_registrations_total",
+          "legendFormat": "Total Registrations",
           "refId": "A"
         }
       ],
-      "title": "🏭 Industrial Devices Online",
+      "title": "📝 Total Device Registrations",
       "type": "stat"
     },
     {
@@ -681,11 +707,11 @@
               },
               {
                 "color": "yellow",
-                "value": 500
+                "value": 10000
               },
               {
                 "color": "red",
-                "value": 1000
+                "value": 50000
               }
             ]
           },
@@ -694,16 +720,16 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 12,
+        "h": 8,
+        "w": 6,
+        "x": 6,
         "y": 24
       },
-      "id": 8,
+      "id": 10,
       "options": {
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "area",
-        "justifyMode": "auto",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
           "values": false,
@@ -718,29 +744,165 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(sparkplug_messages_received_total[1m]) * 60",
-          "legendFormat": "Messages per minute",
+          "expr": "lwm2m_device_updates_total",
+          "legendFormat": "Total Updates",
           "refId": "A"
         }
       ],
-      "title": "📡 Industrial Data Throughput",
+      "title": "🔄 Total Device Updates",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1000
+              },
+              {
+                "color": "red",
+                "value": 5000
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 24
+      },
+      "id": 11,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "lwm2m_websocket_events_total",
+          "legendFormat": "Total Events",
+          "refId": "A"
+        }
+      ],
+      "title": "📊 Total Events",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 24
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.99, rate(lwm2m_command_latency_seconds_bucket[5m]))",
+          "legendFormat": "99th Percentile",
+          "refId": "A"
+        }
+      ],
+      "title": "⏱️ Command Latency (99th %)",
       "type": "stat"
     }
   ],
   "refresh": "5s",
-  "schemaVersion": 36,
+  "schemaVersion": 38,
   "style": "dark",
-  "tags": ["industrial", "sensors", "real-data"],
+  "tags": [
+    "lwm2m",
+    "http",
+    "connector",
+    "iot"
+  ],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
-  "uid": "industrial-sensors-dashboard",
+  "title": "📡 LwM2M HTTP Connector Dashboard",
+  "uid": "lwm2m-http-dashboard",
   "version": 1,
   "weekStart": ""
 } 

@@ -64,22 +64,18 @@ services:
     networks:
       - iot-network
 
-  # MQTT to Redpanda Bridge (Simple Python)
-  mqtt-redpanda-bridge:
-    build: ./mqtt-redpanda-bridge
-    container_name: iot-mqtt-redpanda-bridge
+  # Redpanda Connect - WebSocket to Kafka Bridge
+  redpanda-connect:
+    image: redpandadata/connect:latest
+    container_name: iot-redpanda-connect
     restart: unless-stopped
     ports:
-      - "8087:8083"     # Health check endpoint
-    environment:
-      - MQTT_BROKER_HOST=mosquitto
-      - MQTT_BROKER_PORT=1883
-      - MQTT_USE_TLS=false
-      - REDPANDA_BROKERS=redpanda:29092
-      - BRIDGE_PORT=8083
+      - "8087:4195"     # Connect HTTP API
+    volumes:
+      - ./redpanda-connect-config.yaml:/connect.yaml
     depends_on:
-      - mosquitto
       - redpanda
+      - lwm2m-server
     networks:
       - iot-network
 
@@ -99,6 +95,7 @@ services:
     volumes:
       - ./certs:/app/certs:ro
       - lwm2m_data:/app/data
+      - ./lwm2m-server/server.py:/app/server.py
     depends_on:
       - mosquitto
     networks:

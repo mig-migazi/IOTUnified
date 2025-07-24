@@ -1,0 +1,15 @@
+{
+  "name": "lwm2m-http-source",
+  "config": {
+    "connector.class": "org.apache.kafka.connect.source.SourceConnector",
+    "tasks.max": "1",
+    "topic": "iot.telemetry.lwm2m.http",
+    "http.url": "http://lwm2m-server:8080/api/websocket/events",
+    "http.method": "GET",
+    "http.headers": "Content-Type:application/json",
+    "poll.interval.ms": "5000",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false"
+  }
+} 

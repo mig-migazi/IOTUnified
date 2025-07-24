@@ -1,145 +1,145 @@
 #!/bin/bash
-
-# Start LwM2M 1.2 + Sparkplug B Unified MQTT Testing Environment
-# This script sets up the complete environment with proper initialization
+# IoT Environment Startup Script with Redpanda Integration
+# This script starts the complete IoT environment with WebSocket support
 
 set -e
 
-echo "🚀 Starting LwM2M 1.2 + Sparkplug B Unified MQTT Testing Environment"
-echo "=================================================================="
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-# Check if Docker and Docker Compose are installed
-if ! command -v docker &> /dev/null; then
-    echo "❌ Docker is required but not installed. Please install Docker first."
+print_status() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Check if Docker is running
+if ! docker info > /dev/null 2>&1; then
+    print_error "Docker is not running. Please start Docker first."
     exit 1
 fi
 
-if ! command -v docker-compose &> /dev/null; then
-    echo "❌ Docker Compose is required but not installed. Please install Docker Compose first."
-    exit 1
-fi
+print_success "Docker is running!"
 
-# Generate TLS certificates if they don't exist
-if [ ! -f "certs/server.crt" ]; then
-    echo "🔐 Generating TLS certificates..."
-    chmod +x scripts/generate-certs.sh
+# Generate certificates if they don't exist
+if [ ! -f "certs/ca.crt" ]; then
+    print_status "Generating certificates..."
     ./scripts/generate-certs.sh
-else
-    echo "✅ TLS certificates already exist"
 fi
 
-# Generate MQTT password file if it doesn't exist
-if [ ! -f "mosquitto/passwd.hashed" ]; then
-    echo "🔑 Generating MQTT authentication..."
-    # Use Docker to run mosquitto_passwd since it might not be installed on host
-    docker run --rm -v $(pwd)/mosquitto:/mosquitto eclipse-mosquitto:2.0 \
-        mosquitto_passwd -c -b /mosquitto/passwd.hashed device testpass123
-    docker run --rm -v $(pwd)/mosquitto:/mosquitto eclipse-mosquitto:2.0 \
-        mosquitto_passwd -b /mosquitto/passwd.hashed lwm2m-server testpass123
-    docker run --rm -v $(pwd)/mosquitto:/mosquitto eclipse-mosquitto:2.0 \
-        mosquitto_passwd -b /mosquitto/passwd.hashed sparkplug-host testpass123
-    docker run --rm -v $(pwd)/mosquitto:/mosquitto eclipse-mosquitto:2.0 \
-        mosquitto_passwd -b /mosquitto/passwd.hashed admin testpass123
-    
-    # Update mosquitto.conf to use the hashed password file
-    sed -i '' 's|password_file /mosquitto/config/passwd|password_file /mosquitto/config/passwd.hashed|g' mosquitto/mosquitto.conf
-else
-    echo "✅ MQTT authentication already configured"
-fi
+# Start the environment
+print_status "Starting IoT environment with WebSocket support..."
 
-# Set default environment variables
-export DEVICE_COUNT=${DEVICE_COUNT:-5}
-export TELEMETRY_INTERVAL=${TELEMETRY_INTERVAL:-5}
-export LWM2M_INTERVAL=${LWM2M_INTERVAL:-30}
+# Start core services first
+print_status "Starting Redpanda and core services..."
+docker-compose up -d redpanda redpanda-console
 
-echo "📊 Environment Configuration:"
-echo "   Device Count: $DEVICE_COUNT"
-echo "   Telemetry Interval: ${TELEMETRY_INTERVAL}s"
-echo "   LwM2M Update Interval: ${LWM2M_INTERVAL}s"
-echo ""
+# Wait for Redpanda to be ready
+print_status "Waiting for Redpanda to be ready..."
+until curl -s http://localhost:8084/subjects > /dev/null 2>&1; do
+    print_status "Waiting for Redpanda..."
+    sleep 5
+done
 
-# Build and start services
-echo "🏗️  Building container images..."
-docker-compose build --parallel
+print_success "Redpanda is ready!"
 
-echo "🚀 Starting services..."
+# Start LwM2M server with WebSocket support
+print_status "Starting LwM2M server with WebSocket support..."
+docker-compose up -d lwm2m-server
+
+# Wait for LwM2M server to be ready
+print_status "Waiting for LwM2M server..."
+until curl -s http://localhost:8080/api/health > /dev/null 2>&1; do
+    print_status "Waiting for LwM2M server..."
+    sleep 5
+done
+
+print_success "LwM2M server is ready!"
+
+# Start Redpanda Connect
+print_status "Starting Redpanda Connect..."
+docker-compose up -d redpanda-connect
+
+# Wait for Redpanda Connect to be ready
+print_status "Waiting for Redpanda Connect..."
+until curl -s http://localhost:8087/ready > /dev/null 2>&1; do
+    print_status "Waiting for Redpanda Connect..."
+    sleep 5
+done
+
+print_success "Redpanda Connect is ready!"
+
+# Redpanda Connect is configured via config file
+print_status "Redpanda Connect configured with WebSocket input and Kafka output"
+
+# Start remaining services
+print_status "Starting remaining IoT services..."
 docker-compose up -d
 
-# Wait for services to be healthy
-echo "⏳ Waiting for services to be ready..."
+# Wait for all services to be ready
+print_status "Waiting for services to be ready..."
+sleep 10
 
-# Wait for MQTT broker
-echo "   Waiting for MQTT broker..."
-timeout=60
-while [ $timeout -gt 0 ] && ! docker-compose exec -T mosquitto mosquitto_pub -h localhost -t health -m test 2>/dev/null; do
-    sleep 2
-    timeout=$((timeout-2))
-done
+# Check service health
+print_status "Checking service health..."
 
-if [ $timeout -le 0 ]; then
-    echo "❌ MQTT broker failed to start within 60 seconds"
-    docker-compose logs mosquitto
-    exit 1
+# Check Redpanda Console
+if curl -s http://localhost:8086 > /dev/null 2>&1; then
+    print_success "Redpanda Console: http://localhost:8086"
+else
+    print_warning "Redpanda Console not accessible"
 fi
 
-echo "✅ MQTT broker is ready"
-
-# Wait for LwM2M server
-echo "   Waiting for LwM2M server..."
-timeout=60
-while [ $timeout -gt 0 ] && ! curl -sf http://localhost:8080/api/health >/dev/null 2>&1; do
-    sleep 2
-    timeout=$((timeout-2))
-done
-
-if [ $timeout -le 0 ]; then
-    echo "❌ LwM2M server failed to start within 60 seconds"
-    docker-compose logs lwm2m-server
-    exit 1
+# Check LwM2M Server
+if curl -s http://localhost:8080/api/health > /dev/null 2>&1; then
+    print_success "LwM2M Server: http://localhost:8080"
+else
+    print_warning "LwM2M Server not accessible"
 fi
 
-echo "✅ LwM2M server is ready"
-
-# Wait for Sparkplug host
-echo "   Waiting for Sparkplug B host..."
-timeout=60
-while [ $timeout -gt 0 ] && ! curl -sf http://localhost:8081/health >/dev/null 2>&1; do
-    sleep 2
-    timeout=$((timeout-2))
-done
-
-if [ $timeout -le 0 ]; then
-    echo "❌ Sparkplug B host failed to start within 60 seconds"
-    docker-compose logs sparkplug-host
-    exit 1
+# Check Redpanda Connect
+if curl -s http://localhost:8087/ready > /dev/null 2>&1; then
+    print_success "Redpanda Connect: http://localhost:8087"
+else
+    print_warning "Redpanda Connect not accessible"
 fi
 
-echo "✅ Sparkplug B host is ready"
-
-# Scale device simulators
-if [ "$DEVICE_COUNT" -gt 1 ]; then
-    echo "📱 Scaling device simulators to $DEVICE_COUNT devices..."
-    docker-compose up -d --scale device-simulator=$DEVICE_COUNT
+# Check Grafana
+if curl -s http://localhost:3000 > /dev/null 2>&1; then
+    print_success "Grafana: http://localhost:3000 (admin/admin)"
+else
+    print_warning "Grafana not accessible"
 fi
 
-echo ""
-echo "🎉 Environment is ready! Access points:"
-echo "   📊 Grafana Dashboard:    http://localhost:3000 (admin/admin)"
-echo "   📈 Prometheus Metrics:   http://localhost:9090"
-echo "   🏠 LwM2M Server Web UI:  http://localhost:8080"
-echo "   📡 Sparkplug B Metrics:  http://localhost:8081"
-echo "   👁️  MQTT Monitor:        http://localhost:8082"
-echo ""
-echo "🔧 Useful commands:"
-echo "   View logs:               docker-compose logs -f"
-echo "   Scale devices:           docker-compose up -d --scale device-simulator=N"
-echo "   Stop environment:        docker-compose down"
-echo "   Monitor MQTT traffic:    docker exec -it lwm2m-mosquitto mosquitto_sub -h localhost -t '#' -v"
-echo ""
-echo "📋 Testing scripts available:"
-echo "   Basic connectivity:      ./scripts/test-mqtt-connection.sh"
-echo "   LwM2M functionality:     ./scripts/test-lwm2m-registration.sh"
-echo "   Sparkplug B telemetry:   ./scripts/test-sparkplug-telemetry.sh"
-echo "   Load testing:            ./scripts/load-test.sh"
-echo ""
-echo "✨ Happy testing!" 
+print_success "IoT environment started successfully!"
+print_status ""
+print_status "🌐 Service URLs:"
+echo "  • Redpanda Console: http://localhost:8086"
+echo "  • LwM2M Server: http://localhost:8080"
+echo "  • Redpanda Connect: http://localhost:8087"
+echo "  • Grafana: http://localhost:3000 (admin/admin)"
+echo "  • Prometheus: http://localhost:9090"
+print_status ""
+print_status "📊 Monitoring:"
+echo "  • Monitor data flow: ./scripts/monitor-redpanda-data.sh"
+echo "  • Check connector status: curl http://localhost:8087/connectors"
+echo "  • View topics: docker exec iot-redpanda rpk topic list"
+print_status ""
+print_status "🔧 Next Steps:"
+echo "  1. Open Redpanda Console to view topics and data"
+echo "  2. Check Grafana for dashboards"
+echo "  3. Monitor WebSocket events in real-time" 

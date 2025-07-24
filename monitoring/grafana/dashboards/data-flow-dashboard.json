@@ -8,7 +8,7 @@
   "id": null,
   "links": [],
   "liveNow": true,
-  "title": "🏭 Industrial IoT System Overview",
+  "title": "🔄 Data Flow Pipeline",
   "panels": [
     {
       "datasource": {
@@ -30,21 +30,21 @@
               },
               {
                 "color": "yellow",
-                "value": 5
+                "value": 10
               },
               {
                 "color": "red",
-                "value": 7
+                "value": 50
               }
             ]
           },
-          "unit": "short"
+          "unit": "reqps"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
+        "w": 6,
         "x": 0,
         "y": 0
       },
@@ -67,12 +67,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sparkplug_devices_online",
-          "legendFormat": "Industrial Devices Online",
+          "expr": "rate(lwm2m_events_endpoint_calls_total[5m])",
+          "legendFormat": "Events Endpoint Calls/sec",
           "refId": "A"
         }
       ],
-      "title": "🏭 Industrial Devices Online",
+      "title": "📡 LwM2M Events Endpoint",
       "type": "stat"
     },
     {
@@ -95,29 +95,29 @@
               },
               {
                 "color": "yellow",
-                "value": 500
+                "value": 1000
               },
               {
                 "color": "red",
-                "value": 1000
+                "value": 10000
               }
             ]
           },
-          "unit": "short"
+          "unit": "bytes"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 8,
+        "w": 6,
+        "x": 6,
         "y": 0
       },
       "id": 2,
       "options": {
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "area",
-        "justifyMode": "auto",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
           "values": false,
@@ -132,12 +132,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(sparkplug_messages_received_total[1m]) * 60",
-          "legendFormat": "Messages per minute",
+          "expr": "histogram_quantile(0.95, rate(lwm2m_events_data_size_bytes_bucket[5m]))",
+          "legendFormat": "95th Percentile Data Size",
           "refId": "A"
         }
       ],
-      "title": "📡 Industrial Data Throughput",
+      "title": "📊 Data Size (95th %ile)",
       "type": "stat"
     },
     {
@@ -155,12 +155,81 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "green",
                 "value": null
               },
               {
+                "color": "yellow",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, rate(lwm2m_http_request_duration_seconds_bucket{endpoint=\"events\"}[5m])) * 1000",
+          "legendFormat": "95th Percentile Response Time",
+          "refId": "A"
+        }
+      ],
+      "title": "⏱️ HTTP Response Time",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
                 "color": "green",
-                "value": 1
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1000
+              },
+              {
+                "color": "red",
+                "value": 10000
               }
             ]
           },
@@ -170,20 +239,22 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 16,
+        "w": 6,
+        "x": 18,
         "y": 0
       },
-      "id": 3,
+      "id": 4,
       "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
           "values": false,
           "calcs": ["lastNotNull"],
           "fields": ""
         },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true
+        "textMode": "auto"
       },
       "targets": [
         {
@@ -191,13 +262,13 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "up{job=~\"sparkplug-host|lwm2m-server\"}",
-          "legendFormat": "{{job}}",
+          "expr": "lwm2m_events_endpoint_calls_total",
+          "legendFormat": "Total Events Endpoint Calls",
           "refId": "A"
         }
       ],
-      "title": "⚡ Core Services",
-      "type": "gauge"
+      "title": "📈 Total Events Endpoint Calls",
+      "type": "stat"
     },
     {
       "datasource": {
@@ -222,12 +293,12 @@
               "vis": false
             },
             "lineInterpolation": "linear",
-            "lineWidth": 2,
+            "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -251,7 +322,7 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "reqps"
         },
         "overrides": []
       },
@@ -259,103 +330,6 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 8
-      },
-      "id": 4,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(sparkplug_messages_received_total[5m]) * 60",
-          "legendFormat": "Sparkplug B Messages/min",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(lwm2m_device_updates_total[5m]) * 60",
-          "legendFormat": "LwM2M Updates/min",
-          "refId": "B"
-        }
-      ],
-      "title": "📈 Protocol Message Rates",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
         "y": 8
       },
       "id": 5,
@@ -376,8 +350,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sparkplug_devices_online",
-          "legendFormat": "Sparkplug B Devices",
+          "expr": "rate(lwm2m_events_endpoint_calls_total[5m])",
+          "legendFormat": "Events Endpoint Calls/sec",
           "refId": "A"
         },
         {
@@ -385,29 +359,230 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "lwm2m_active_devices",
-          "legendFormat": "LwM2M Devices",
+          "expr": "rate(lwm2m_websocket_events_total[5m])",
+          "legendFormat": "Events Generated/sec",
           "refId": "B"
         }
       ],
-      "title": "🔧 Device Status Over Time",
+      "title": "🔄 Data Flow Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, rate(lwm2m_http_request_duration_seconds_bucket{endpoint=\"events\"}[5m])) * 1000",
+          "legendFormat": "95th Percentile",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.50, rate(lwm2m_http_request_duration_seconds_bucket{endpoint=\"events\"}[5m])) * 1000",
+          "legendFormat": "Median",
+          "refId": "B"
+        }
+      ],
+      "title": "⏱️ HTTP Response Time Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, rate(lwm2m_events_data_size_bytes_bucket[5m]))",
+          "legendFormat": "95th Percentile Data Size",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.50, rate(lwm2m_events_data_size_bytes_bucket[5m]))",
+          "legendFormat": "Median Data Size",
+          "refId": "B"
+        }
+      ],
+      "title": "📊 Data Size Over Time",
       "type": "timeseries"
     }
   ],
   "refresh": "5s",
-  "schemaVersion": 36,
+  "schemaVersion": 38,
   "style": "dark",
-  "tags": ["industrial", "iot", "overview"],
+  "tags": [
+    "data-flow",
+    "pipeline",
+    "lwm2m",
+    "redpanda",
+    "http"
+  ],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
-  "uid": "industrial-iot",
-  "version": 4,
+  "title": "🔄 Data Flow Pipeline",
+  "uid": "data-flow-pipeline",
+  "version": 1,
   "weekStart": ""
 } 

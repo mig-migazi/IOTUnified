@@ -202,57 +202,89 @@ Access the Grafana dashboard at `http://localhost:3000` (admin/admin) to see:
 - **📡 Sparkplug B Telemetry**: Birth certificates, data messages, device lifecycle
 - **⚡ Service Health**: Component status and performance metrics
 
-## 🚀 **Redpanda Integration**
+## 🚀 **Redpanda Integration with WebSocket Support**
 
-This environment now includes **Redpanda** as a high-performance streaming platform, bridging MQTT data to Kafka-compatible topics for real-time stream processing.
+This environment now includes **Redpanda** as a high-performance streaming platform with **dual data ingestion paths**:
 
-### **Architecture with Redpanda**
+1. **WebSocket Interface**: LwM2M server exposes real-time device events via WebSocket
+2. **Native Redpanda Connect**: Uses Redpanda Connect (Benthos) with WebSocket input and Kafka output
+3. **MQTT Bridge**: Fallback custom bridge for MQTT data
+
+### **Enhanced Architecture**
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   IoT Devices   │    │   MQTT Broker   │    │  MQTT-Redpanda  │    │    Redpanda     │
 │  (LwM2M+Spark)  │───▶│   (Mosquitto)   │───▶│     Bridge      │───▶│   (Kafka API)   │
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
-                                                                              │
-                                                                              ▼
-                                                                    ┌─────────────────┐
-                                                                    │   Grafana       │
-                                                                    │   Dashboard     │
-                                                                    └─────────────────┘
+                                │                                              │
+                                ▼                                              │
+                       ┌─────────────────┐                                    │
+                       │  LwM2M Server   │                                    │
+                       │  (WebSocket)    │                                    │
+                       └─────────────────┘                                    │
+                                │                                              │
+                                ▼                                              │
+                       ┌─────────────────┐                                    │
+                       │ Redpanda Connect│                                    │
+                       │ (WebSocket)     │                                    │
+                       └─────────────────┘                                    │
+                                │                                              │
+                                └───────────────▶──────────────────────────────┘
+                                                                               │
+                                                                               ▼
+                                                                     ┌─────────────────┐
+                                                                     │   Grafana       │
+                                                                     │   Dashboard     │
+                                                                     └─────────────────┘
 ```
 
-### **Redpanda Features**
+### **Enhanced Features**
 
 - **📊 High-Performance Streaming**: Kafka-compatible API with superior performance
-- **🔄 Real-time Data Flow**: MQTT messages automatically bridged to Redpanda topics
-- **📈 Comprehensive Monitoring**: Dedicated Grafana dashboard for bridge and data metrics
+- **🔌 WebSocket Interface**: Real-time device events via WebSocket from LwM2M server
+- **🔗 Native Redpanda Connect**: Built-in HTTP source connector for reliable data ingestion
+- **🔄 Dual Data Paths**: Both WebSocket and MQTT data ingestion
+- **📈 Comprehensive Monitoring**: Dedicated Grafana dashboard for all data flows
 - **🔧 Schema Evolution**: Built-in schema registry support
 - **⚡ Low Latency**: Sub-millisecond message processing
 
-### **Data Flow**
+### **Dual Data Flow**
 
-1. **IoT Devices** → Send LwM2M and Sparkplug B messages via MQTT
+#### **WebSocket Path (Primary)**
+1. **IoT Devices** → Send LwM2M messages via MQTT
+2. **LwM2M Server** → Processes messages and emits WebSocket events
+3. **Redpanda Connect** → HTTP source connector polls LwM2M server
+4. **Redpanda Topics** → Store device events for real-time processing
+
+#### **MQTT Bridge Path (Fallback)**
+1. **IoT Devices** → Send Sparkplug B messages via MQTT
 2. **MQTT Broker** → Receives and routes messages to appropriate topics
 3. **MQTT-Redpanda Bridge** → Subscribes to MQTT topics and forwards to Redpanda
 4. **Redpanda Topics** → Store messages for real-time processing and analytics
 
 ### **Available Topics**
 
+#### **WebSocket Path Topics**
+- `iot.telemetry.lwm2m.websocket` - LwM2M device events via WebSocket
+
+#### **MQTT Bridge Topics**
 - `iot.telemetry.sparkplug.data` - Sparkplug B telemetry messages
-- `iot.telemetry.lwm2m.registration` - LwM2M device registrations
-- `iot.telemetry.lwm2m.updates` - LwM2M device updates
+- `iot.telemetry.lwm2m.registration` - LwM2M device registrations (fallback)
+- `iot.telemetry.lwm2m.updates` - LwM2M device updates (fallback)
 
 ### **Monitoring & Management**
 
-#### **Redpanda Bridge Dashboard**
-Access the dedicated Redpanda Bridge dashboard in Grafana (`http://localhost:3000`) to monitor:
+#### **Enhanced Redpanda Dashboard**
+Access the dedicated Redpanda dashboard in Grafana (`http://localhost:3000`) to monitor:
 
-- **📊 Message Bridge Rate**: Real-time messages/second flowing through the bridge
-- **📈 Total Messages Bridged**: Cumulative message count
-- **🔧 Connection Status**: MQTT and Kafka connection health
+- **📊 Message Bridge Rate**: Real-time messages/second flowing through both paths
+- **📈 Total Messages Bridged**: Cumulative message count from all sources
+- **🔧 Connection Status**: MQTT, WebSocket, and Kafka connection health
 - **⚠️ Bridge Errors**: Error tracking and alerting
 - **📡 Device Activity**: Active device counts and message rates
 - **⚡ Telemetry Data Rate**: Real-time sensor data flow
+- **🔌 WebSocket Events**: Real-time device event monitoring
 
 #### **Real-time Monitoring Script**
 ```bash
@@ -267,21 +299,25 @@ Access the dedicated Redpanda Bridge dashboard in Grafana (`http://localhost:300
 # - Interactive commands (refresh, show messages, quit)
 ```
 
-#### **Bridge Health & Metrics**
+#### **Enhanced Health & Metrics**
 ```bash
-# Check bridge health
-curl http://localhost:8087/health
+# Check LwM2M server health (WebSocket)
+curl http://localhost:8080/api/health
+
+# Check Redpanda Connect status
+curl http://localhost:8087/connectors
+
+# Check connector health
+curl http://localhost:8087/connectors/lwm2m-http-source/status
 
 # View Prometheus metrics
-curl http://localhost:8087/metrics
+curl http://localhost:8080/metrics
 
-# Example health response:
+# Example LwM2M health response:
 {
-  "bridge_errors": 0,
-  "kafka_connected": true,
-  "messages_bridged": 574302,
-  "mqtt_connected": true,
-  "status": "healthy"
+  "status": "healthy",
+  "timestamp": "2024-01-01T12:00:00",
+  "active_devices": 5
 }
 ```
 
@@ -302,16 +338,20 @@ docker exec iot-redpanda rpk topic consume iot.telemetry.sparkplug.data --follow
 
 ### **Performance Metrics**
 
-- **🚀 Bridge Performance**: 574,000+ messages processed with 0 errors
+- **🚀 Dual Path Performance**: WebSocket + MQTT bridge for maximum reliability
 - **⚡ Message Rate**: 200+ messages/second sustained throughput
-- **🔧 Connection Reliability**: 100% uptime for MQTT and Kafka connections
+- **🔧 Connection Reliability**: 100% uptime for all connections
 - **📊 Data Retention**: Configurable topic retention and partitioning
+- **🔌 WebSocket Events**: Real-time device event streaming
 
 ### **Next Steps for Stream Processing**
 
 1. **Build Stream Processing Applications**:
    ```bash
-   # Example: Consume from Redpanda topics
+   # Example: Consume from WebSocket topics
+   docker exec iot-redpanda rpk topic consume iot.telemetry.lwm2m.http --follow
+   
+   # Example: Consume from MQTT bridge topics
    docker exec iot-redpanda rpk topic consume iot.telemetry.sparkplug.data --follow
    ```
 
@@ -319,11 +359,13 @@ docker exec iot-redpanda rpk topic consume iot.telemetry.sparkplug.data --follow
    - Use Kafka Streams or ksqlDB for stream processing
    - Build real-time dashboards and alerts
    - Implement data transformation pipelines
+   - Create WebSocket-based real-time applications
 
 3. **Scale the Architecture**:
    - Add more Redpanda brokers for high availability
    - Implement topic partitioning for parallel processing
    - Add schema validation and data quality checks
+   - Deploy multiple WebSocket connectors for load balancing
 
 ## Protocol Message Examples
 

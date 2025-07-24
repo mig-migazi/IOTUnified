@@ -1,0 +1,21 @@
+input:
+  http_client:
+    url: "http://lwm2m-server:8080/api/events"
+    verb: GET
+    headers:
+      Content-Type: "application/json"
+
+output:
+  kafka:
+    addresses:
+      - "redpanda:29092"
+    topic: "iot.telemetry.lwm2m.http"
+    key: "${! json(\"device_id\") }"
+    max_in_flight: 1
+    timeout: "5s"
+    retry_as_batch: true
+    max_retries: 3
+
+logger:
+  level: INFO
+  format: json 

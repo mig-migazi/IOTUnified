@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LwM2M Server Implementation with MQTT Transport
+LwM2M Server Implementation with MQTT Transport and WebSocket Interface
 Handles device registration, management, and firmware updates
 """
 
@@ -14,24 +14,74 @@ from flask import Flask, jsonify, request, render_template_string
 import paho.mqtt.client as mqtt
 import structlog
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+from functools import wraps
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = structlog.get_logger()
+
+def track_http_request(endpoint_name):
+    """Decorator to track HTTP request metrics"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            start_time = time.time()
+            try:
+                result = f(*args, **kwargs)
+                duration = time.time() - start_time
+                http_requests.labels(endpoint=endpoint_name, method=request.method).inc()
+                http_request_duration.labels(endpoint=endpoint_name).observe(duration)
+                return result
+            except Exception as e:
+                duration = time.time() - start_time
+                http_requests.labels(endpoint=endpoint_name, method=request.method).inc()
+                http_request_duration.labels(endpoint=endpoint_name).observe(duration)
+                raise
+        return decorated_function
+    return decorator
 
 # Prometheus metrics
 device_registrations = Counter('lwm2m_device_registrations_total', 'Total device registrations')
 device_updates = Counter('lwm2m_device_updates_total', 'Total device updates')
 active_devices = Gauge('lwm2m_active_devices', 'Number of active devices')
 command_latency = Histogram('lwm2m_command_latency_seconds', 'Command response latency')
+websocket_events = Counter('lwm2m_websocket_events_total', 'Total WebSocket events sent')
+http_requests = Counter('lwm2m_http_requests_total', 'Total HTTP requests', ['endpoint', 'method'])
+http_request_duration = Histogram('lwm2m_http_request_duration_seconds', 'HTTP request duration', ['endpoint'])
+events_endpoint_calls = Counter('lwm2m_events_endpoint_calls_total', 'Total calls to events endpoint')
+events_data_size = Histogram('lwm2m_events_data_size_bytes', 'Size of events data returned', ['endpoint'])
 
 class LwM2MServer:
     def __init__(self):
         self.devices = {}
         self.mqtt_client = None
         self.flask_app = Flask(__name__)
+        # Store recent events for Redpanda Connect
+        self.recent_events = []
+        self.max_events = 1000  # Keep last 1000 events
         self.setup_flask_routes()
         self.setup_mqtt_client()
+
+
+
+    def emit_device_event(self, event_type, data):
+        """Store device event for Redpanda Connect"""
+        try:
+            event_data = {
+                'event_type': event_type,
+                'timestamp': datetime.now().isoformat(),
+                'data': data
+            }
+            
+            # Store event for Redpanda Connect
+            self.recent_events.append(event_data)
+            if len(self.recent_events) > self.max_events:
+                self.recent_events.pop(0)  # Remove oldest event
+            
+            websocket_events.inc()
+            logger.debug("Stored device event", event_type=event_type, device_id=data.get('device_id'))
+        except Exception as e:
+            logger.error("Error storing device event", error=str(e))
 
     def setup_mqtt_client(self):
         """Setup MQTT client for LwM2M transport"""
@@ -125,6 +175,9 @@ class LwM2MServer:
             
             logger.info("Device registered", device_id=device_id, endpoint=device_info["endpoint"])
             
+            # Emit WebSocket event
+            self.emit_device_event('device_registered', device_info)
+            
             # Send registration response
             response = {
                 "status": "registered",
@@ -159,6 +212,9 @@ class LwM2MServer:
             
             logger.debug("Device updated", device_id=device_id)
             
+            # Emit WebSocket event
+            self.emit_device_event('device_updated', device)
+            
             # Send update response
             response = {
                 "status": "updated",
@@ -184,6 +240,14 @@ class LwM2MServer:
             if device_id in self.devices:
                 self.devices[device_id]["last_update"] = datetime.now().isoformat()
                 
+            # Emit WebSocket event
+            event_data = {
+                "device_id": device_id,
+                "command_type": command_type,
+                "response": response_data
+            }
+            self.emit_device_event('command_response', event_data)
+                
         except Exception as e:
             logger.error("Error handling command response", 
                         device_id=device_id, 
@@ -193,19 +257,35 @@ class LwM2MServer:
     def _handle_device_deregistration(self, device_id):
         """Handle device deregistration"""
         if device_id in self.devices:
+            device_info = self.devices[device_id]
             del self.devices[device_id]
             active_devices.set(len(self.devices))
             logger.info("Device deregistered", device_id=device_id)
+            
+            # Emit WebSocket event
+            self.emit_device_event('device_deregistered', {"device_id": device_id, "device_info": device_info})
 
     def setup_flask_routes(self):
         """Setup Flask REST API routes"""
         
+        @self.flask_app.route('/api/routes')
+        def list_routes():
+            routes = []
+            for rule in self.flask_app.url_map.iter_rules():
+                routes.append({
+                    "endpoint": rule.endpoint,
+                    "methods": list(rule.methods),
+                    "rule": rule.rule
+                })
+            return jsonify(routes)
+
         @self.flask_app.route('/api/health')
         def health():
             return jsonify({
                 "status": "healthy",
                 "timestamp": datetime.now().isoformat(),
-                "active_devices": len(self.devices)
+                "active_devices": len(self.devices),
+                "events": self.recent_events
             })
 
         @self.flask_app.route('/api/devices')
@@ -255,6 +335,27 @@ class LwM2MServer:
             
             return jsonify({"status": "command_sent", "command": command})
 
+        @self.flask_app.route('/api/events')
+        @track_http_request('events')
+        def events():
+            """REST endpoint for Redpanda Connect to consume events"""
+            # Track events endpoint usage
+            events_endpoint_calls.inc()
+            
+            # Return recent events in a format suitable for Redpanda Connect
+            response_data = self.recent_events
+            
+            # Track data size
+            data_size = len(json.dumps(response_data).encode('utf-8'))
+            events_data_size.labels(endpoint='events').observe(data_size)
+            
+            logger.info("Events endpoint called", 
+                       events_count=len(response_data), 
+                       data_size_bytes=data_size,
+                       client_ip=request.remote_addr)
+            
+            return jsonify(response_data)
+
         @self.flask_app.route('/api/devices/<device_id>/execute', methods=['POST'])
         def execute_resource(device_id):
             if device_id not in self.devices:
@@ -277,6 +378,12 @@ class LwM2MServer:
         @self.flask_app.route('/metrics')
         def metrics():
             return generate_latest(), 200, {'Content-Type': CONTENT_TYPE_LATEST}
+
+        @self.flask_app.route('/api/simple')
+        def simple():
+            return jsonify({"message": "simple route works"})
+
+
 
         @self.flask_app.route('/')
         def dashboard():
