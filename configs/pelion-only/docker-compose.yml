@@ -1,0 +1,79 @@
+# Pelion-Only IoT Data Pipeline
+# Minimal configuration for connecting to Pelion Device Management cloud
+# and streaming data to Redpanda
+
+services:
+  # Redpanda - Kafka-compatible streaming platform
+  redpanda:
+    image: redpandadata/redpanda:latest
+    container_name: pelion-redpanda
+    command:
+      - redpanda
+      - start
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --overprovisioned
+      - --node-id 0
+      - --check=false
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --advertise-pandaproxy-addr pelion-redpanda:8082
+      - --kafka-addr 0.0.0.0:9092
+      - --advertise-kafka-addr pelion-redpanda:29092
+      - --rpc-addr 0.0.0.0:33145
+      - --advertise-rpc-addr pelion-redpanda:33145
+    ports:
+      - "9093:9092"
+      - "8088:8081"  # Redpanda Admin API
+      - "8089:8082"  # Redpanda Proxy
+      - "9645:9644"  # Metrics
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    # healthcheck:
+    #   test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy: true' || exit 1"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 10
+    #   start_period: 60s
+
+  # Redpanda Console - Web UI for monitoring
+  redpanda-console:
+    image: redpandadata/console:latest
+    container_name: pelion-redpanda-console
+    entrypoint: /bin/sh
+    command: -c "echo \"$$CONSOLE_CONFIG_FILE\" > /tmp/config.yml; /app/console"
+    environment:
+      CONFIG_FILEPATH: /tmp/config.yml
+      CONSOLE_CONFIG_FILE: |
+        kafka:
+          brokers: ["pelion-redpanda:9092"]
+          schemaRegistry:
+            enabled: true
+            urls: ["http://pelion-redpanda:8081"]
+        connect:
+          enabled: true
+          clusters:
+            - name: "pelion-connect"
+              url: "http://pelion-redpanda-connect:4195"
+    ports:
+      - "8087:8080"
+    depends_on:
+      - redpanda
+
+  # Redpanda Connect - Data pipeline for Pelion WebSocket
+  redpanda-connect:
+    image: redpandadata/connect:latest
+    container_name: pelion-redpanda-connect
+
+    volumes:
+      - ./redpanda-connect-config.yaml:/connect.yaml
+    environment:
+      - PELION_API_KEY=${PELION_API_KEY}
+    ports:
+      - "4196:4195"
+    depends_on:
+      - redpanda
+    restart: unless-stopped
+
+volumes:
+  redpanda_data: 

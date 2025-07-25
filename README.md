@@ -1,197 +1,183 @@
-# Unified IoT Testing Environment: LwM2M + Sparkplug B + FDI + Pelion Cloud
+# IoT Data Pipeline Configurations
 
-This project demonstrates a **comprehensive IoT architecture** that supports multiple protocols and use cases:
+This repository contains multiple IoT data pipeline configurations for different use cases, from simple cloud integrations to full-stack IoT environments.
 
-- **MQTT + Sparkplug B**: High-throughput telemetry for edge device interoperability
-- **LwM2M over MQTT**: High-throughput device management and cloud streaming
-- **FDI (Field Device Integration)**: Standardized device configuration and management
-- **Pelion Device Management**: Cloud-based IoT platform integration
-- **Smart Breaker Simulator**: Realistic industrial IoT device simulation
+## 🏗️ Available Configurations
 
-## 🎯 **Key Innovation: High-Throughput Dual-Path Optimization**
+### 1. **Pelion-Only** (`configs/pelion-only/`)
+**Minimal cloud integration** - Connect to Pelion Device Management cloud and stream data to Redpanda.
 
-**For Edge Device Interoperability:**
-- **High-Throughput Path**: MQTT + Sparkplug B for real-time device-to-device communication
-- **Edge-Only**: Device interoperability, no cloud streaming
-- **Performance**: 1000+ msg/sec per device
+- **Use Case**: Cloud-only IoT data streaming
+- **Components**: Redpanda + Redpanda Connect + Pelion WebSocket
+- **External Dependencies**: Pelion Device Management cloud
+- **Ports**: 9093, 8087-8089, 4196
 
-**For Cloud Streaming:**
-- **High-Throughput Path**: LwM2M over MQTT with bulk messaging for cloud analytics
-- **Cloud Streaming**: HTTP endpoint for cloud data processing and monitoring
-- **Performance**: 1000+ msg/sec per device (with bulk operations)
-
-## Architecture Overview
-
-```
-┌─────────────────────────┐    ┌──────────────────┐    ┌─────────────────────────┐
-│     IoT Devices         │    │   MQTT Broker    │    │   Cloud Layer           │
-│  (Dual-Path Protocol)   │    │  (Mosquitto)     │    │                         │
-│                         │    │                  │    │ ┌─────────────────────┐ │
-│ ┌─────────────────────┐ │    │                  │    │ │   LwM2M Server      │ │
-│ │    LwM2M over      │◄┼────┼── MQTT Topics ───┼────┤ │ (MQTT Subscriber)   │ │
-│ │    MQTT Transport  │ │    │  lwm2m/{id}/reg  │    │ │ Device Management   │ │
-│ │ (High Throughput)  │ │    │  lwm2m/{id}/upd  │    │ │ ┌─────────────────┐ │ │
-│ │   Bulk Messaging   │ │    │  lwm2m/{id}/bulk │    │ │ │ HTTP API        │ │ │
-│ └─────────────────────┘ │    │                  │    │ │ │ /api/events    │ │ │
-│ ┌─────────────────────┐ │    │                  │    │ │ │ Cloud Stream   │ │ │
-│ │   Sparkplug B      │◄┼────┼── MQTT Topics ───┼────┤ │ │ │ Bulk Data      │ │ │
-│ │   Telemetry        │ │    │  spBv1.0/IIoT/*  │    │ │ └─────────────────┘ │ │
-│ │ (High Throughput)  │ │    │                  │    │ └─────────────────────┘ │
-│ │  Edge Interop      │ │    │   Single TLS     │    │ ┌─────────────────────┐ │
-│ └─────────────────────┘ │    │   Connection     │    │ │  MQTT Monitor       │ │
-│                         │    │                  │    │ │ Edge Interop        │ │
-│      Same Device        │    │                  │    │ └─────────────────────┘ │
-│      Same Connection    │    │                  │    │                         │
-└─────────────────────────┘    └──────────────────┘    └──┴─────────────────────┴─┘
-                                        │
-                                        ▼
-┌─────────────────────────┐    ┌──────────────────┐    ┌─────────────────────────┐
-│   Cloud Streaming       │    │  Data Processing │    │   Monitoring & Analytics│
-│                         │    │                  │    │                         │
-│ ┌─────────────────────┐ │    │ ┌───────────────┐ │    │ ┌─────────────────────┐ │
-│ │  Redpanda Connect   │ │    │ │   Redpanda    │ │    │ │     Grafana         │ │
-│ │  (HTTP Source)      │◄┼────┼─┤  (Kafka API)  │◄┼────┼─┤   Dashboards        │ │
-│ │  /api/events        │ │    │ │               │ │    │ │ • LwM2M Cloud Flow  │ │
-│ │  LwM2M Bulk Data    │ │    │ │               │ │    │ │ • HTTP Bridge       │ │
-│ └─────────────────────┘ │    │ └───────────────┘ │    │ │ • Edge Interop      │ │
-│                         │    │                  │    │ │ • Bulk Performance  │ │
-│                         │    │ ┌───────────────┐ │    │ └─────────────────────┘ │
-│                         │    │ │   Prometheus  │ │    │ ┌─────────────────────┐ │
-│                         │    │ │   Metrics     │◄┼────┼─┤   Real-time Alerts  │ │
-│                         │    │ │               │ │    │ │   & Monitoring      │ │
-│                         │    │ └───────────────┘ │    │ └─────────────────────┘ │
-└─────────────────────────┘    └──────────────────┘    └─────────────────────────┘
+```bash
+cd configs/pelion-only
+./setup.sh
 ```
 
-## 🚀 Updated High-Throughput Results ("Go For Broke" Test)
+### 2. **Smart Breaker** (`configs/smart-breaker/`)
+**FDI-compliant smart breaker simulation** with LwM2M and Sparkplug B communication.
 
-- **LwM2M Bulk Operations Processed**: 941,177
-- **Events Endpoint Calls**: 82,539
-- **Bulk Size**: 10 operations per message
-- **LwM2M Interval**: 0.005s (200 msg/sec per device)
-- **Redpanda Connect**: Fast polling, 10 concurrent requests, snappy compression
-- **Devices**: 7 simulated
-- **System**: Stable at high load, HTTP response time ~10ms
+- **Use Case**: Industrial IoT device simulation and testing
+- **Components**: Smart Breaker Simulator + LwM2M Server + MQTT + Redpanda
+- **Features**: FDI device integration, real-time monitoring, web demo
+- **Ports**: 1883, 5684, 8080, 8088, 9092, 8084-8086
 
-### **Configuration for Maximum Throughput**
+```bash
+cd configs/smart-breaker
+docker-compose up -d
+```
 
-- **device-simulator/main.py**:
-  - `lwm2m_interval = 0.005`  # 200 msg/sec per device
-  - `bulk_size = 10`         # 10 operations per bulk message
-  - `bulk_interval = 0.05`   # 50ms max wait per bulk
-- **redpanda-connect-config.yaml**:
-  - `timeout: "1s"`
-  - `max_in_flight: 10`
-  - `compression: "snappy"`
+### 3. **Full Stack** (`configs/full-stack/`)
+**Complete IoT environment** with multiple protocols, monitoring, and device simulators.
 
-### **Performance Summary**
-- **Achieved**: Nearly 1 million LwM2M operations processed in minutes
-- **Edge-to-Cloud**: LwM2M bulk messaging at 1000+ msg/sec total
-- **Edge Interop**: Sparkplug B path remains high-throughput
-- **Redpanda Connect**: Now keeps up with device simulator
+- **Use Case**: Comprehensive IoT development and testing
+- **Components**: All services (LwM2M, MQTT, Sparkplug B, Redpanda, monitoring)
+- **Features**: Multi-protocol support, device simulation, monitoring dashboards
+- **Ports**: 1883, 5684, 8080, 8088, 9092, 8084-8086, 4195
 
-> **Note:** These results are from the latest "go for broke" test configuration. The platform is now proven to handle extremely high-throughput IoT workloads with both LwM2M and Sparkplug B.
+```bash
+cd configs/full-stack
+docker-compose up -d
+```
 
-## Key Features
+### 4. **FDI Components** (`fdi/`)
+**Industrial IoT device integration** - Complete FDI (Field Device Integration) implementation with web interface.
 
-- 🔄 **High-Throughput Dual-Path**: Both protocols optimized for 1000+ msg/sec
-- 🚀 **Edge Interoperability**: Sparkplug B for device-to-device communication
-- 📊 **Cloud Streaming**: LwM2M bulk messaging for cloud analytics
-- 🔌 **HTTP Connector**: LwM2M events streaming via HTTP endpoint to Redpanda
-- 📈 **Bulk Operations**: LwM2M bulk read/write/observe for high throughput
-- 📊 **Comprehensive Monitoring**: Edge interop + Cloud streaming dashboards
-- 🏭 **FDI Integration**: Standardized device configuration and management
-- ☁️ **Pelion Cloud**: Real IoT platform integration with WebSocket connections
-- ⚡ **Smart Breaker Simulator**: Realistic industrial IoT device simulation
-- 🌐 **Web Demo Interface**: Interactive FDI workflow demonstration
-- 🐳 **Fully Containerized**: No host dependencies, Docker-based deployment
-- 🔄 **Live Code Updates**: Volume mounts enable development without rebuilds
+- **Use Case**: Industrial device management and testing
+- **Components**: FDI Web Demo + Device Driver + Device Profiles + Testing Suite
+- **Features**: Interactive web interface, device simulation, command execution
+- **Ports**: 8088 (Web Demo)
 
-## Use Cases & Components
-
-### **Edge Interoperability (Sparkplug B):**
-- **Real-time device coordination**: Temperature sensors triggering pressure adjustments
-- **Local control loops**: Flow sensors controlling pump speeds
-- **Edge analytics**: Device-to-device data correlation
-- **Low-latency responses**: Sub-millisecond device communication
-
-### **Cloud Streaming (LwM2M Bulk):**
-- **Bulk telemetry upload**: Batch sensor data for cloud processing
-- **Device management**: Bulk configuration and monitoring
-- **Cloud analytics**: Historical data analysis and ML training
-- **Enterprise integration**: Bulk data for business intelligence
-
-### **Industrial IoT (FDI + Smart Breaker):**
-- **Device configuration**: Standardized device setup and management
-- **Industrial automation**: Circuit breaker monitoring and control
-- **Device interoperability**: FDI-compliant device integration
-- **Web-based management**: Interactive device configuration interface
-
-### **Cloud Platform Integration (Pelion):**
-- **Real IoT platforms**: Connect to production cloud services
-- **Device registration**: Cloud-based device management
-- **WebSocket streaming**: Real-time device notifications
-- **Enterprise IoT**: Production-ready cloud integration
+```bash
+cd fdi
+python3 fdi_web_demo.py
+# Open http://localhost:8088
+```
 
 ## 🚀 Quick Start
 
-### **1. Basic Setup (Local Testing)**
-```bash
-# Start the environment
-./scripts/start-environment.sh
+### Choose Your Configuration
 
-# Deploy Redpanda connectors
-./scripts/deploy-redpanda-connector.sh
+1. **For Pelion cloud integration**:
+   ```bash
+   cd configs/pelion-only
+   cp config.env.example config.env
+   # Edit config.env with your PELION_API_KEY
+   ./setup.sh
+   ```
 
-# Monitor data flow
-docker exec iot-redpanda rpk topic consume iot.telemetry.lwm2m --follow
-```
+2. **For smart breaker testing**:
+   ```bash
+   cd configs/smart-breaker
+   docker-compose up -d
+   # Access web demo at http://localhost:8088
+   ```
 
-### **2. FDI Web Demo**
-```bash
-# Start FDI web interface
-python3 fdi_web_demo.py
+3. **For full IoT development**:
+   ```bash
+   cd configs/full-stack
+   docker-compose up -d
+   # Access all services and monitoring
+   ```
 
-# Open browser: http://localhost:8088
-```
+4. **For FDI device management**:
+   ```bash
+   cd fdi
+   python3 fdi_web_demo.py
+   # Open http://localhost:8088 for interactive device management
+   ```
 
-### **3. Smart Breaker Testing**
-```bash
-# Start smart breaker simulator
-docker-compose -f docker-compose.smart-breaker-test.yml up -d
+## 📊 Monitoring
 
-# Monitor smart breaker data
-docker logs eaton-smart-breaker-test -f
-```
+Each configuration provides monitoring capabilities:
 
-### **4. Pelion Cloud Integration**
-```bash
-# Set your Pelion API key
-./scripts/setup-pelion.sh
+- **Redpanda Console**: Web UI for topic monitoring (`http://localhost:8086`)
+- **Topic Consumption**: Real-time data streaming
+- **Service Logs**: Docker container logs for debugging
 
-# Deploy cloud connector
-./scripts/deploy-redpanda-connector.sh
+## 🔧 Configuration Management
 
-# Monitor cloud data
-docker exec iot-redpanda rpk topic consume iot.telemetry.pelion --follow
-```
+### Environment Variables
+
+Each configuration has its own `config.env` file:
+
+- **Pelion-Only**: `PELION_API_KEY`, Redpanda settings
+- **Smart Breaker**: Device simulation, MQTT, LwM2M settings
+- **Full Stack**: Complete environment configuration
+
+### Port Management
+
+Each configuration uses different port ranges to avoid conflicts:
+
+- **Pelion-Only**: 9092, 8084-8086, 4195
+- **Smart Breaker**: 1883, 5684, 8080, 8088, 9092, 8084-8086
+- **Full Stack**: All ports (can be customized)
 
 ## 📁 Project Structure
 
 ```
-IOT/
-├── device-simulator/          # Multi-protocol device simulator
-├── device-profiles/           # FDI device descriptions
-├── fdi-device-driver/         # FDI client implementation
-├── fdi_web_demo.py           # Interactive FDI web interface
-├── smart_breaker_simulator.py # Eaton smart breaker simulation
-├── redpanda-connect-config.yaml # Redpanda Connect configuration
-├── pelion-connector-config.json # Pelion cloud connector
-├── scripts/                   # Deployment and setup scripts
-├── monitoring/                # Grafana dashboards and Prometheus
-└── README files:              # Comprehensive documentation
-    ├── README.md              # Main project overview
-    ├── SMART_BREAKER_README.md # Smart breaker documentation
-    ├── FDI_COMPLETE_README.md # FDI implementation details
-    └── REDPANDA_CONNECTORS_README.md # Connector documentation
-``` 
+├── configs/
+│   ├── pelion-only/          # Minimal cloud integration
+│   │   ├── docker-compose.yml
+│   │   ├── redpanda-connect-config.yaml
+│   │   ├── config.env.example
+│   │   ├── setup.sh
+│   │   └── README.md
+│   ├── smart-breaker/        # FDI smart breaker simulation
+│   │   ├── docker-compose.yml
+│   │   ├── config.env
+│   │   └── README.md
+│   └── full-stack/           # Complete IoT environment
+│       ├── docker-compose.yml
+│       ├── redpanda-connect-config.yaml
+│       ├── config.env
+│       └── README.md
+├── device-simulator/         # Smart breaker simulator
+├── fdi/                     # FDI components and web demo
+│   ├── fdi_web_demo.py      # Interactive web interface
+│   ├── device-profiles/     # FDI device definitions
+│   ├── fdi-device-driver/   # FDI driver implementation
+│   └── templates/           # Web demo templates
+├── lwm2m-server/            # LwM2M server implementation
+├── scripts/                 # Utility scripts
+└── README.md               # This file
+```
+
+## 🛠️ Development
+
+### Adding New Configurations
+
+1. Create a new directory in `configs/`
+2. Add `docker-compose.yml` and configuration files
+3. Create `README.md` with usage instructions
+4. Update this main README
+
+### Customizing Existing Configurations
+
+Each configuration is self-contained and can be customized:
+
+- Modify `docker-compose.yml` for service changes
+- Update `config.env` for environment variables
+- Customize connector configurations for different data sources
+
+## 📚 Documentation
+
+- **Pelion-Only**: See `configs/pelion-only/README.md`
+- **Smart Breaker**: See `configs/smart-breaker/README.md` and `SMART_BREAKER_README.md`
+- **Full Stack**: See `configs/full-stack/README.md`
+- **FDI Integration**: See `fdi/README.md` and `fdi/FDI_COMPLETE_README.md`
+- **Redpanda Connectors**: See `REDPANDA_CONNECTORS_README.md`
+
+## 🤝 Contributing
+
+1. Choose the appropriate configuration for your use case
+2. Follow the setup instructions in each configuration's README
+3. Customize as needed for your specific requirements
+4. Share improvements and new configurations
+
+## 📄 License
+
+This project is open source and available under the MIT License. 

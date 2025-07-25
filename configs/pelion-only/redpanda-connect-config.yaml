@@ -1,0 +1,31 @@
+# Redpanda Connect Configuration for Pelion Device Management
+# Connects to Pelion cloud WebSocket and streams data to Redpanda
+
+input:
+  websocket:
+    url: "wss://api.us-east-1.mbedcloud.com/v2/notification/websocket"
+    tls:
+      enabled: true
+      skip_cert_verify: false
+    connection:
+      max_retries: 10
+    basic_auth:
+      enabled: true
+      username: ""
+      password: "${PELION_API_KEY}"
+
+output:
+  kafka:
+    addresses:
+      - "pelion-redpanda:9092"
+    topic: "iot.telemetry.pelion"
+    key: "${! json(\"endpoint_name\") }"
+    max_in_flight: 10
+    timeout: "5s"
+    retry_as_batch: true
+    max_retries: 3
+    compression: "snappy"
+
+logger:
+  level: INFO
+  format: json 

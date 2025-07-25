@@ -1,0 +1,26 @@
+# Redpanda Connect Configuration
+# Simplified configuration for local LwM2M testing
+
+input:
+  http_client:
+    url: "http://lwm2m-server:8080/api/events"
+    verb: GET
+    headers:
+      Content-Type: "application/json"
+    timeout: "1s"
+
+output:
+  kafka:
+    addresses:
+      - "redpanda:29092"
+    topic: "iot.telemetry.lwm2m"
+    key: "${! json(\"device_id\") }"
+    max_in_flight: 10
+    timeout: "5s"
+    retry_as_batch: true
+    max_retries: 3
+    compression: "snappy"
+
+logger:
+  level: INFO
+  format: json 
