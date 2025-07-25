@@ -9,11 +9,11 @@
 - **Test**: Successfully loads and parses `.fdi` file with XML namespaces
 - **Result**: Device information correctly extracted:
   - Device Type: `SmartCircuitBreaker`
-  - Manufacturer: `Eaton`
+  - Manufacturer: `Smart`
   - Model: `XSeries-SmartBreaker`
   - Serial Number: `ETN-XSB-001`
   - Version: `2.1.0`
-  - Description: `Eaton XSeries Smart Circuit Breaker with Advanced Monitoring`
+  - Description: `Smart XSeries Smart Circuit Breaker with Advanced Monitoring`
 
 #### **2. FDI Device Driver Interface** ✅
 - **Status**: **WORKING**

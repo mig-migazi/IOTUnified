@@ -4,11 +4,11 @@
     <DeviceType>SmartCircuitBreaker</DeviceType>
     <DeviceRevision>1.0</DeviceRevision>
     <DeviceRevisionDate>2024-01-01</DeviceRevisionDate>
-    <DeviceManufacturer>Eaton</DeviceManufacturer>
+    <DeviceManufacturer>Smart</DeviceManufacturer>
     <DeviceModel>XSeries-SmartBreaker</DeviceModel>
     <DeviceSerialNumber>ETN-XSB-001</DeviceSerialNumber>
     <DeviceVersion>2.1.0</DeviceVersion>
-    <DeviceDescription>Eaton XSeries Smart Circuit Breaker with Advanced Monitoring</DeviceDescription>
+    <DeviceDescription>Smart XSeries Smart Circuit Breaker with Advanced Monitoring</DeviceDescription>
   </DeviceIdentity>
   
   <DeviceType>

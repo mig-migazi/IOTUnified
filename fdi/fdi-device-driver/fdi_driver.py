@@ -5,7 +5,7 @@ This driver can be loaded by FDI client applications to configure devices
 that use modern IoT protocols instead of traditional fieldbus protocols.
 
 The driver translates FDI commands to MQTT/LwM2M/Sparkplug B communication
-so that FDI clients can configure devices like the Eaton Smart Breaker.
+so that FDI clients can configure devices like the Smart Breaker.
 
 Usage:
 1. Load this driver into an FDI client application
@@ -646,7 +646,7 @@ def example_fdi_client_usage():
     
     # Create FDI device driver
     driver = create_fdi_driver(
-        fdi_package_path="device-profiles/eaton-smart-breaker.fdi",
+        fdi_package_path="device-profiles/smart-breaker.fdi",
         mqtt_broker_host="localhost",
         mqtt_broker_port=1883
     )

@@ -1,6 +1,6 @@
-# Eaton Smart Breaker - FDI-Compliant IoT Device
+# Smart Breaker - FDI-Compliant IoT Device
 
-This implementation demonstrates a **FDI-compliant Eaton Smart Breaker** that integrates seamlessly with the existing high-throughput dual-path IoT architecture (LwM2M + Sparkplug B).
+This implementation demonstrates a **FDI-compliant Smart Breaker** that integrates seamlessly with the existing high-throughput dual-path IoT architecture (LwM2M + Sparkplug B).
 
 ## 🎯 **Key Features**
 
@@ -33,7 +33,7 @@ This implementation demonstrates a **FDI-compliant Eaton Smart Breaker** that in
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Eaton Smart Breaker                          │
+│                    Smart Breaker                          │
 │                                                                 │
 │  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────┐ │
 │  │   Protection    │    │   Monitoring    │    │   Control   │ │
@@ -86,10 +86,10 @@ This implementation demonstrates a **FDI-compliant Eaton Smart Breaker** that in
 
 ## 📋 **FDI Device Description**
 
-The smart breaker implements a comprehensive FDI device description (`device-profiles/eaton-smart-breaker.fdi`) that includes:
+The smart breaker implements a comprehensive FDI device description (`device-profiles/smart-breaker.fdi`) that includes:
 
 ### **Device Identity**
-- **Manufacturer**: Eaton
+- **Manufacturer**: Smart
 - **Model**: XSeries-SmartBreaker
 - **Type**: SmartCircuitBreaker
 - **Category**: PowerDistribution/CircuitProtection
@@ -142,7 +142,7 @@ docker-compose -f docker-compose.smart-breaker.yml up smart-breaker-fleet -d
 ### **3. Monitor Device**
 ```bash
 # View smart breaker logs
-docker logs eaton-smart-breaker -f
+docker logs smart-breaker -f
 
 # Access LwM2M server UI
 open http://localhost:8080
@@ -157,9 +157,9 @@ open http://localhost:8086
 
 #### **Device Identity**
 ```bash
-DEVICE_ID=eaton-breaker-001
+DEVICE_ID=smart-breaker-001
 DEVICE_TYPE=SmartBreaker
-DEVICE_MANUFACTURER=Eaton
+DEVICE_MANUFACTURER=Smart
 DEVICE_MODEL=XSeries-SmartBreaker-TypeB
 ```
 
@@ -206,7 +206,7 @@ nano config.env
 #### **FDI Device Profile**
 The FDI device description is located at:
 ```
-device-profiles/eaton-smart-breaker.fdi
+device-profiles/smart-breaker.fdi
 ```
 
 ## 📊 **Monitoring & Analytics**
@@ -223,19 +223,19 @@ Access pre-configured dashboards at `http://localhost:3000`:
 
 #### **Sparkplug B Topics**
 ```
-spBv1.0/IIoT/DBIRTH/eaton-breaker-001    # Birth certificate
-spBv1.0/IIoT/DDATA/eaton-breaker-001     # Telemetry data
-spBv1.0/IIoT/DCMD/eaton-breaker-001      # Commands
-spBv1.0/IIoT/DDEATH/eaton-breaker-001    # Death certificate
+spBv1.0/IIoT/DBIRTH/smart-breaker-001    # Birth certificate
+spBv1.0/IIoT/DDATA/smart-breaker-001     # Telemetry data
+spBv1.0/IIoT/DCMD/smart-breaker-001      # Commands
+spBv1.0/IIoT/DDEATH/smart-breaker-001    # Death certificate
 ```
 
 #### **LwM2M Topics**
 ```
-lwm2m/eaton-breaker-001/reg              # Registration
-lwm2m/eaton-breaker-001/update           # Updates
-lwm2m/eaton-breaker-001/cmd/trip         # Trip command
-lwm2m/eaton-breaker-001/cmd/close        # Close command
-lwm2m/eaton-breaker-001/cmd/configure    # Configuration
+lwm2m/smart-breaker-001/reg              # Registration
+lwm2m/smart-breaker-001/update           # Updates
+lwm2m/smart-breaker-001/cmd/trip         # Trip command
+lwm2m/smart-breaker-001/cmd/close        # Close command
+lwm2m/smart-breaker-001/cmd/configure    # Configuration
 ```
 
 ### **Key Metrics**
@@ -327,28 +327,28 @@ if (operating_hours > maintenance_hours or
 #### **Connection Problems**
 ```bash
 # Check MQTT connectivity
-docker logs eaton-smart-breaker | grep "MQTT"
+docker logs smart-breaker | grep "MQTT"
 
 # Verify network connectivity
-docker exec eaton-smart-breaker ping mosquitto
+docker exec smart-breaker ping mosquitto
 ```
 
 #### **Protection Issues**
 ```bash
 # Check protection settings
-docker exec eaton-smart-breaker env | grep PICKUP
+docker exec smart-breaker env | grep PICKUP
 
 # View protection logs
-docker logs eaton-smart-breaker | grep "trip"
+docker logs smart-breaker | grep "trip"
 ```
 
 #### **Performance Issues**
 ```bash
 # Monitor resource usage
-docker stats eaton-smart-breaker
+docker stats smart-breaker
 
 # Check message rates
-docker logs eaton-smart-breaker | grep "msg/sec"
+docker logs smart-breaker | grep "msg/sec"
 ```
 
 ### **Diagnostic Tests**
@@ -378,7 +378,7 @@ The FDI device description includes diagnostic tests:
 from fdi_host import FDIHost
 
 host = FDIHost()
-device_package = host.load_device_package("eaton-smart-breaker.fdi")
+device_package = host.load_device_package("smart-breaker.fdi")
 device = host.register_device(device_package)
 
 # Automatic configuration
@@ -391,12 +391,12 @@ host.configure_device(device, "StandardProtection")
 import requests
 
 # Get device information
-response = requests.get("http://lwm2m-server:8080/api/devices/eaton-breaker-001")
+response = requests.get("http://lwm2m-server:8080/api/devices/smart-breaker-001")
 device_info = response.json()
 
 # Send trip command
 trip_command = {"command": "trip"}
-requests.post("http://lwm2m-server:8080/api/devices/eaton-breaker-001/command", 
+requests.post("http://lwm2m-server:8080/api/devices/smart-breaker-001/command", 
               json=trip_command)
 ```
 
@@ -406,13 +406,13 @@ requests.post("http://lwm2m-server:8080/api/devices/eaton-breaker-001/command",
 import paho.mqtt.client as mqtt
 
 def on_message(client, userdata, msg):
-    if "eaton-breaker-001" in msg.topic:
+    if "smart-breaker-001" in msg.topic:
         # Process breaker telemetry
         process_breaker_data(msg.payload)
 
 client = mqtt.Client()
 client.on_message = on_message
-client.subscribe("spBv1.0/IIoT/DDATA/eaton-breaker-001")
+client.subscribe("spBv1.0/IIoT/DDATA/smart-breaker-001")
 ```
 
 ## 📚 **References**
@@ -423,8 +423,8 @@ client.subscribe("spBv1.0/IIoT/DDATA/eaton-breaker-001")
 - **Sparkplug B**: MQTT-based industrial IoT protocol (Eclipse Tahu)
 - **MQTT**: Message Queuing Telemetry Transport (OASIS)
 
-### **Eaton Smart Breaker Documentation**
-- **XSeries Smart Breaker**: Eaton's intelligent circuit breaker series
+### **Smart Breaker Documentation**
+- **XSeries Smart Breaker**: Smart's intelligent circuit breaker series
 - **Protection Functions**: Overcurrent, ground fault, arc fault protection
 - **Communication Protocols**: Modbus, DNP3, IEC 61850, MQTT
 
@@ -450,4 +450,4 @@ This implementation demonstrates FDI compliance for smart breakers. To contribut
 
 ---
 
-**Note**: This implementation provides a comprehensive FDI-compliant smart breaker model that can be extended and customized for specific Eaton smart breaker models and applications. 
+**Note**: This implementation provides a comprehensive FDI-compliant smart breaker model that can be extended and customized for specific Smart breaker models and applications. 

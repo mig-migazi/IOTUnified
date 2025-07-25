@@ -21,7 +21,7 @@ def test_fdi_driver_core():
         # Test 1: Create FDI device driver
         print("📦 Test 1: Creating FDI device driver...")
         driver = create_fdi_driver(
-            fdi_package_path="device-profiles/eaton-smart-breaker.fdi",
+            fdi_package_path="device-profiles/smart-breaker.fdi",
             mqtt_broker_host="localhost",
             mqtt_broker_port=1883
         )

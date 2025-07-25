@@ -57,7 +57,7 @@ from fdi_driver import create_fdi_driver
 
 # Create driver instance
 driver = create_fdi_driver(
-    fdi_package_path="device-profiles/eaton-smart-breaker.fdi",
+    fdi_package_path="device-profiles/smart-breaker.fdi",
     mqtt_broker_host="localhost",
     mqtt_broker_port=1883
 )
@@ -76,17 +76,17 @@ The driver implements the standard FDI device driver interface:
 ```python
 # Discover available devices
 devices = driver.discover_devices()
-# Returns: ["eaton-breaker-001", "eaton-breaker-002"]
+# Returns: ["smart-breaker-001", "smart-breaker-002"]
 ```
 
 ### **Parameter Management**
 ```python
 # Get device parameters
-params = driver.get_device_parameters("eaton-breaker-001")
+params = driver.get_device_parameters("smart-breaker-001")
 # Returns: {"overcurrent_pickup": 100.0, "ground_fault_pickup": 5.0, ...}
 
 # Set device parameters
-success = driver.set_device_parameters("eaton-breaker-001", {
+success = driver.set_device_parameters("smart-breaker-001", {
     "overcurrent_pickup": 120.0,
     "ground_fault_pickup": 3.0
 })
@@ -99,21 +99,21 @@ templates = driver.get_available_templates()
 # Returns: ["StandardProtection", "HighSensitivity", "MotorProtection"]
 
 # Apply template
-success = driver.apply_configuration_template("eaton-breaker-001", "StandardProtection")
+success = driver.apply_configuration_template("smart-breaker-001", "StandardProtection")
 ```
 
 ### **Device Control**
 ```python
 # Send commands
-success = driver.send_command("eaton-breaker-001", "trip")
-success = driver.send_command("eaton-breaker-001", "close")
-success = driver.send_command("eaton-breaker-001", "reset")
+success = driver.send_command("smart-breaker-001", "trip")
+success = driver.send_command("smart-breaker-001", "close")
+success = driver.send_command("smart-breaker-001", "reset")
 ```
 
 ### **Status Monitoring**
 ```python
 # Get device status
-status = driver.get_device_status("eaton-breaker-001")
+status = driver.get_device_status("smart-breaker-001")
 # Returns: {"device_id": "...", "communication_status": "online", ...}
 ```
 
@@ -123,7 +123,7 @@ status = driver.get_device_status("eaton-breaker-001")
 ```python
 # In PCS 7 FDI configuration
 fdi_driver_path = "/path/to/fdi_driver.py"
-fdi_package_path = "/path/to/eaton-smart-breaker.fdi"
+fdi_package_path = "/path/to/smart-breaker.fdi"
 mqtt_broker = "192.168.1.100:1883"
 
 # PCS 7 will load the driver and use it to configure devices
@@ -134,7 +134,7 @@ mqtt_broker = "192.168.1.100:1883"
 # In 800xA FDI configuration
 driver_config = {
     "driver_path": "/path/to/fdi_driver.py",
-    "fdi_package": "/path/to/eaton-smart-breaker.fdi",
+    "fdi_package": "/path/to/smart-breaker.fdi",
     "mqtt_broker": "192.168.1.100:1883",
     "mqtt_username": "device",
     "mqtt_password": "password"
@@ -146,7 +146,7 @@ driver_config = {
 # In DeltaV FDI configuration
 fdi_driver = {
     "type": "mqtt_lwm2m_sparkplug",
-    "package_file": "/path/to/eaton-smart-breaker.fdi",
+    "package_file": "/path/to/smart-breaker.fdi",
     "broker_host": "192.168.1.100",
     "broker_port": 1883,
     "security": "tls"
@@ -189,7 +189,7 @@ spBv1.0/{group_id}/DCMD/{device_id}    # Device commands
 
 // Device Response
 {
-    "device_id": "eaton-breaker-001",
+    "device_id": "smart-breaker-001",
     "configuration": {
         "overcurrent_pickup": 100.0,
         "ground_fault_pickup": 5.0,
@@ -205,7 +205,7 @@ spBv1.0/{group_id}/DCMD/{device_id}    # Device commands
 ```python
 # TLS/SSL Support
 driver = create_fdi_driver(
-    fdi_package_path="device-profiles/eaton-smart-breaker.fdi",
+    fdi_package_path="device-profiles/smart-breaker.fdi",
     mqtt_broker_host="localhost",
     mqtt_broker_port=8883,  # TLS port
     mqtt_username="device",
@@ -218,7 +218,7 @@ driver = create_fdi_driver(
 ```python
 # Username/Password Authentication
 driver = create_fdi_driver(
-    fdi_package_path="device-profiles/eaton-smart-breaker.fdi",
+    fdi_package_path="device-profiles/smart-breaker.fdi",
     mqtt_broker_host="localhost",
     mqtt_broker_port=1883,
     mqtt_username="fdi_client",

@@ -25,7 +25,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 class FDIWebDemo:
     def __init__(self):
-        self.fdi_file_path = "device-profiles/eaton-smart-breaker.fdi"
+        self.fdi_file_path = "device-profiles/smart-breaker.fdi"
         self.device_driver = None
         self.device_info = None
         self.configuration_templates = []
@@ -151,8 +151,8 @@ class FDIWebDemo:
         """Simulate device discovery"""
         # Simulate discovering the smart breaker
         self.discovered_devices = [{
-            'id': 'eaton-breaker-001',
-            'name': 'Eaton Smart Breaker',
+            'id': 'smart-breaker-001',
+            'name': 'Smart Breaker',
             'type': 'SmartCircuitBreaker',
             'status': 'online',
             'ip': '192.168.1.100',
@@ -661,7 +661,7 @@ def create_html_template():
                 <div class="step-number">1</div>
                 <h3>📁 Load FDI File</h3>
                 <div class="step-content">
-                    <p>Load the Eaton Smart Breaker device description file (.fdi)</p>
+                    <p>Load the Smart Breaker device description file (.fdi)</p>
                     <button class="btn" onclick="loadFDIFile()">Load FDI File</button>
                     <div id="device-info" class="device-info" style="display: none;">
                         <h4>Device Information</h4>
@@ -937,7 +937,7 @@ def create_html_template():
             
             // Simulate configuration data (in real implementation, this would come from the device)
             const configData = {
-                "device_id": "eaton-breaker-001",
+                "device_id": "smart-breaker-001",
                 "configuration": {
                     "overcurrent_pickup": 100.0,
                     "overcurrent_delay": 1000.0,

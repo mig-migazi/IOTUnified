@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Eaton Smart Breaker Device Simulator
+Smart Breaker Device Simulator
 Implements FDI-compliant smart breaker with LwM2M + Sparkplug B dual-path communication
 
 Features:
@@ -260,7 +260,7 @@ class SmartBreakerSimulator:
             "objects": {
                 "3": {
                     "0": {
-                        "0": "Eaton",
+                        "0": "Smart",
                         "1": f"XSeries-SmartBreaker-{self.config.protection_class}",
                         "2": self.config.device_id,
                         "3": "2.1.0"
@@ -876,7 +876,7 @@ class SmartBreakerSimulator:
         # Add device metrics
         metrics_data = [
             ("Device/Type", 12, "SmartBreaker"),  # STRING = 12
-            ("Device/Manufacturer", 12, "Eaton"),  # STRING = 12
+            ("Device/Manufacturer", 12, "Smart"),  # STRING = 12
             ("Device/Model", 12, f"XSeries-SmartBreaker-{self.config.protection_class}"),  # STRING = 12
             ("Device/SerialNumber", 12, self.config.device_id),  # STRING = 12
             ("Device/FirmwareVersion", 12, "2.1.0"),  # STRING = 12
@@ -920,7 +920,7 @@ def create_breaker_config() -> BreakerConfig:
     device_index = int(os.getenv("DEVICE_INDEX", "0"))
     
     return BreakerConfig(
-        device_id=f"eaton-breaker-{device_index:03d}",
+        device_id=f"smart-breaker-{device_index:03d}",
         rated_current=float(os.getenv("RATED_CURRENT", "100.0")),
         rated_voltage=float(os.getenv("RATED_VOLTAGE", "480.0")),
         rated_frequency=float(os.getenv("RATED_FREQUENCY", "60.0")),

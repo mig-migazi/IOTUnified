@@ -1,6 +1,6 @@
 # Complete FDI Implementation - Smart Breaker IoT
 
-This implementation provides a **complete FDI (Field Device Integration) solution** for standardizing IoT device configuration, with a focus on Eaton Smart Breakers. It includes a **FDI device driver** that enables FDI client applications to configure devices using modern IoT protocols (MQTT, LwM2M, Sparkplug B).
+This implementation provides a **complete FDI (Field Device Integration) solution** for standardizing IoT device configuration, with a focus on Smart Breakers. It includes a **FDI device driver** that enables FDI client applications to configure devices using modern IoT protocols (MQTT, LwM2M, Sparkplug B).
 
 ## 🎯 **What Was Missing - Now Complete**
 
@@ -68,7 +68,7 @@ This implementation provides a **complete FDI (Field Device Integration) solutio
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                              Eaton Smart Breaker                                    │
+│                              Smart Breaker                                    │
 │                                                                                     │
 │  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────────────────────┐ │
 │  │   Protection    │    │   Monitoring    │    │   Communication                 │ │
@@ -242,7 +242,7 @@ If you want to use real FDI client applications, here are some options:
 #### **Using Siemens PCS 7 (Example):**
 1. Install PCS 7 with FDI support
 2. Add the FDI device driver to the system
-3. Load your `.fdi` file: `device-profiles/eaton-smart-breaker.fdi`
+3. Load your `.fdi` file: `device-profiles/smart-breaker.fdi`
 4. Configure MQTT broker settings
 5. Discover and configure devices through PCS 7
 
@@ -256,7 +256,7 @@ from fdi_driver import create_fdi_driver
 
 def test_fdi():
     driver = create_fdi_driver(
-        fdi_package_path="device-profiles/eaton-smart-breaker.fdi",
+        fdi_package_path="device-profiles/smart-breaker.fdi",
         mqtt_broker_host="localhost",
         mqtt_broker_port=1883
     )
@@ -353,23 +353,23 @@ result = await device_mgmt.call_method("DiscoverDevices", "all")
 
 # Register device
 success = await device_mgmt.call_method("RegisterDevice", 
-                                       "Eaton_SmartCircuitBreaker", 
-                                       "eaton-breaker-001")
+                                       "Smart_SmartCircuitBreaker",
+"smart-breaker-001")
 
 # Configure device
 success = await device_mgmt.call_method("ConfigureDevice", 
-                                       "eaton-breaker-001", 
+                                       "smart-breaker-001", 
                                        "StandardProtection")
 
 # Send command
 success = await device_mgmt.call_method("SendCommand", 
-                                       "eaton-breaker-001", 
+                                       "smart-breaker-001", 
                                        "trip", 
                                        "{}")
 
 # Get device status
 status = await device_mgmt.call_method("GetDeviceStatus", 
-                                      "eaton-breaker-001")
+                                      "smart-breaker-001")
 ```
 
 ### **OPC UA Address Space**
@@ -378,7 +378,7 @@ Root
 └── FDI (Namespace: http://opcfoundation.org/FDI/2011/Device)
     └── DeviceManagement
         ├── DevicePackages
-        │   └── Eaton_SmartCircuitBreaker
+        │   └── Smart_SmartCircuitBreaker
         │       ├── DeviceType
         │       ├── Manufacturer
         │       ├── Model
@@ -389,7 +389,7 @@ Root
         │           ├── HighSensitivity
         │           └── MotorProtection
         ├── Devices
-        │   └── eaton-breaker-001
+        │   └── smart-breaker-001
         │       ├── DeviceType
         │       ├── Manufacturer
         │       ├── Model

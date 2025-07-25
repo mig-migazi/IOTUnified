@@ -19,7 +19,7 @@ class SimpleFDIClient:
     """Simple FDI Client that demonstrates the standard FDI workflow"""
     
     def __init__(self):
-        self.fdi_file_path = "device-profiles/eaton-smart-breaker.fdi"
+        self.fdi_file_path = "device-profiles/smart-breaker.fdi"
         self.device_driver = None
         self.device_info = None
         self.configuration_templates = []

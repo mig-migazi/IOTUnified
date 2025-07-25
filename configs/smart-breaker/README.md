@@ -52,7 +52,7 @@ docker exec iot-redpanda rpk topic consume iot.telemetry.lwm2m --follow
 
 ## 📊 Services
 
-- **Smart Breaker Simulator**: Eaton smart breaker with FDI compliance
+- **Smart Breaker Simulator**: Smart breaker with FDI compliance
 - **LwM2M Server**: Device management and HTTP API
 - **MQTT Broker**: Mosquitto for device communication
 - **Redpanda**: Data streaming platform
@@ -123,7 +123,7 @@ curl http://localhost:8080/api/events
 pip3 install flask flask-socketio structlog
 
 # Verify FDI file
-ls -la ../../device-profiles/eaton-smart-breaker.fdi
+ls -la ../../fdi/device-profiles/smart-breaker.fdi
 ```
 
 ## 📚 Documentation

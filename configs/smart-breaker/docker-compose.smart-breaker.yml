@@ -1,16 +1,16 @@
 services:
-  # Eaton Smart Breaker Simulator
+  # Smart Breaker Simulator
   smart-breaker:
     build: 
       context: ./device-simulator
       dockerfile: Dockerfile
-    container_name: eaton-smart-breaker
+    container_name: smart-breaker
     restart: unless-stopped
     environment:
       # Device Identity
-      - DEVICE_ID=eaton-breaker-001
+      - DEVICE_ID=smart-breaker-001
       - DEVICE_TYPE=SmartBreaker
-      - DEVICE_MANUFACTURER=Eaton
+      - DEVICE_MANUFACTURER=Smart
       - DEVICE_MODEL=XSeries-SmartBreaker-TypeB
       - DEVICE_SERIAL_NUMBER=ETN-XSB-001
       - DEVICE_FIRMWARE_VERSION=2.1.0
@@ -98,13 +98,13 @@ services:
     build: 
       context: ./device-simulator
       dockerfile: Dockerfile
-    container_name: eaton-smart-breaker-fleet
+    container_name: smart-breaker-fleet
     restart: unless-stopped
     environment:
       # Device Identity
-      - DEVICE_ID=eaton-breaker-fleet
+      - DEVICE_ID=smart-breaker-fleet
       - DEVICE_TYPE=SmartBreaker
-      - DEVICE_MANUFACTURER=Eaton
+      - DEVICE_MANUFACTURER=Smart
       - DEVICE_MODEL=XSeries-SmartBreaker-TypeB
       - DEVICE_SERIAL_NUMBER=ETN-XSB-FLEET
       - DEVICE_FIRMWARE_VERSION=2.1.0

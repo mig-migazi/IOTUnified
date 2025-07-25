@@ -7,7 +7,7 @@ We successfully implemented a complete FDI (Field Device Integration) solution t
 ## ✅ Core FDI Functionality Working
 
 ### 1. FDI Device Description File
-- **File**: `device-profiles/eaton-smart-breaker.fdi`
+- **File**: `device-profiles/smart-breaker.fdi`
 - **Status**: ✅ Complete and compliant
 - **Contains**:
   - Device identity and capabilities
@@ -36,11 +36,11 @@ We successfully implemented a complete FDI (Field Device Integration) solution t
 ```
 ✅ Device Information:
    Type: SmartCircuitBreaker
-   Manufacturer: Eaton
+   Manufacturer: Smart
    Model: XSeries-SmartBreaker
    Serial Number: ETN-XSB-001
    Version: 2.1.0
-   Description: Eaton XSeries Smart Circuit Breaker with Advanced Monitoring
+   Description: Smart XSeries Smart Circuit Breaker with Advanced Monitoring
 
 ✅ Found 3 configuration templates:
    • StandardProtection: Standard protection settings for typical applications
@@ -92,7 +92,7 @@ We successfully implemented a complete FDI (Field Device Integration) solution t
 
 This implementation shows exactly how real FDI clients work in industrial automation:
 
-1. **No Custom Code Required**: The FDI client automatically knows how to configure the Eaton Smart Breaker just by loading the `.fdi` file
+1. **No Custom Code Required**: The FDI client automatically knows how to configure the Smart Breaker just by loading the `.fdi` file
 2. **Standard Templates**: Pre-defined configuration templates can be applied to any compatible device
 3. **Unified Interface**: Same client can configure different device types using their respective `.fdi` files
 4. **Protocol Translation**: FDI commands are automatically translated to the device's native protocol (MQTT/LwM2M/Sparkplug B)
@@ -101,7 +101,7 @@ This implementation shows exactly how real FDI clients work in industrial automa
 
 In a real industrial environment, this would work as follows:
 
-1. **System Integrator** loads the Eaton Smart Breaker `.fdi` file into their FDI-enabled DCS/SCADA system
+1. **System Integrator** loads the Smart Breaker `.fdi` file into their FDI-enabled DCS/SCADA system
 2. **System automatically discovers** the device capabilities and available configurations
 3. **Operator selects** a configuration template (e.g., "HighSensitivity" for critical applications)
 4. **System applies** the configuration automatically without any custom programming
@@ -111,7 +111,7 @@ This is exactly how FDI is intended to work in industrial automation - providing
 
 ## 📁 Files Created
 
-- `device-profiles/eaton-smart-breaker.fdi` - Complete FDI device description
+- `device-profiles/smart-breaker.fdi` - Complete FDI device description
 - `fdi_client_demo.py` - FDI client demonstration
 - `fdi-device-driver/fdi_driver.py` - FDI device driver
 - `test_fdi_parsing.py` - XML parsing test

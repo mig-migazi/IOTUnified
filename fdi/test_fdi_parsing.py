@@ -12,7 +12,7 @@ def test_fdi_parsing():
     print("=" * 40)
     
     # Parse the FDI XML file
-    tree = ET.parse("device-profiles/eaton-smart-breaker.fdi")
+    tree = ET.parse("device-profiles/smart-breaker.fdi")
     root = tree.getroot()
     
     # Define namespace

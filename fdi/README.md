@@ -56,7 +56,7 @@ Implementation of FDI device driver:
 
 ### **Device Profiles** (`device-profiles/`)
 FDI device description files:
-- `eaton-smart-breaker.fdi` - Eaton smart breaker device description
+- `smart-breaker.fdi` - Smart breaker device description
 - Additional device profiles can be added here
 
 ### **Testing** (`test_fdi_*.py`)

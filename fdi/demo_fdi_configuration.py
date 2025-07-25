@@ -29,7 +29,7 @@ class FDIConfigurationDemo:
         print("🔧 Setting up FDI Device Driver...")
         try:
             self.driver = create_fdi_driver(
-                fdi_package_path="device-profiles/eaton-smart-breaker.fdi",
+                fdi_package_path="device-profiles/smart-breaker.fdi",
                 mqtt_broker_host="localhost",
                 mqtt_broker_port=1883
             )
