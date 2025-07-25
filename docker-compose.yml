@@ -1,3 +1,7 @@
+# NOTE: Monitoring services (Prometheus, Grafana, MQTT Monitor) are COMMENTED OUT
+# to prevent disk space issues. These services can accumulate large amounts of data.
+# To enable monitoring, uncomment the services below and ensure sufficient disk space.
+
 services:
   # MQTT Broker - Edge message hub for device interoperability
   mosquitto:
@@ -126,71 +130,71 @@ services:
     deploy:
       replicas: 1
 
-  # Prometheus - Metrics collection
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: lwm2m-prometheus
-    restart: unless-stopped
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
-    networks:
-      - iot-network
+  # Prometheus - Metrics collection (COMMENTED OUT TO SAVE SPACE)
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: lwm2m-prometheus
+  #   restart: unless-stopped
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+  #     - prometheus_data:/prometheus
+  #   command:
+  #     - '--config.file=/etc/prometheus/prometheus.yml'
+  #     - '--storage.tsdb.path=/prometheus'
+  #     - '--web.console.libraries=/etc/prometheus/console_libraries'
+  #     - '--web.console.templates=/etc/prometheus/consoles'
+  #     - '--storage.tsdb.retention.time=200h'
+  #     - '--web.enable-lifecycle'
+  #   networks:
+  #     - iot-network
 
-  # Grafana - Metrics visualization
-  grafana:
-    image: grafana/grafana:latest
-    container_name: lwm2m-grafana
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
-    volumes:
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
-      - grafana_data:/var/lib/grafana
-    depends_on:
-      - prometheus
-    networks:
-      - iot-network
+  # Grafana - Metrics visualization (COMMENTED OUT TO SAVE SPACE)
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: lwm2m-grafana
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - GF_SECURITY_ADMIN_USER=admin
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin
+  #     - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+  #   volumes:
+  #     - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+  #     - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+  #     - grafana_data:/var/lib/grafana
+  #   depends_on:
+  #     - prometheus
+  #   networks:
+  #     - iot-network
 
-  # MQTT Message Monitor - Edge device interoperability monitoring
-  mqtt-monitor:
-    build: ./mqtt-monitor
-    container_name: mqtt-monitor
-    restart: unless-stopped
-    ports:
-      - "8082:8082"     # Web interface
-    environment:
-      - MQTT_BROKER_HOST=mosquitto
-      - MQTT_BROKER_PORT=8883
-      - MQTT_USE_TLS=true
-      - WEB_PORT=8082
-    volumes:
-      - ./certs:/app/certs:ro
-    depends_on:
-      - mosquitto
-    networks:
-      - iot-network
+  # MQTT Message Monitor - Edge device interoperability monitoring (COMMENTED OUT TO SAVE SPACE)
+  # mqtt-monitor:
+  #   build: ./mqtt-monitor
+  #   container_name: mqtt-monitor
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8082:8082"     # Web interface
+  #   environment:
+  #     - MQTT_BROKER_HOST=mosquitto
+  #     - MQTT_BROKER_PORT=8883
+  #     - MQTT_USE_TLS=true
+  #     - WEB_PORT=8082
+  #   volumes:
+  #     - ./certs:/app/certs:ro
+  #   depends_on:
+  #     - mosquitto
+  #   networks:
+  #     - iot-network
 
 volumes:
   mosquitto_data:
   mosquitto_log:
   lwm2m_data:
-  prometheus_data:
-  grafana_data:
+  # prometheus_data:  # COMMENTED OUT TO SAVE SPACE
+  # grafana_data:     # COMMENTED OUT TO SAVE SPACE
   redpanda_data:
 
 networks:
