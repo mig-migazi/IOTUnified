@@ -1,22 +1,52 @@
+# Redpanda Connect Configuration
+# Supports both local LwM2M testing and Pelion cloud WebSocket connections
+
+# Local LwM2M HTTP Source (for testing)
 input:
   http_client:
     url: "http://lwm2m-server:8080/api/events"
     verb: GET
     headers:
       Content-Type: "application/json"
-    timeout: "1s"       # Faster timeout for quick polling
+    timeout: "1s"
+    rate_limit: "1000ms"  # Poll every second
 
+# Pelion Cloud WebSocket Source (for production)
+input_websocket:
+  websocket:
+    url: "wss://api.us.east-1.mbedcloud.com/v2/notification/websocket"
+    headers:
+      Authorization: "${PELION_API_KEY}"  # Set via environment variable
+      Content-Type: "application/json"
+    timeout: "30s"
+    reconnect_interval: "5s"
+    max_reconnect_attempts: 10
+
+# Output to Redpanda topics
 output:
   kafka:
     addresses:
       - "redpanda:29092"
-    topic: "iot.telemetry.lwm2m.http"
+    topic: "iot.telemetry.lwm2m"
     key: "${! json(\"device_id\") }"
-    max_in_flight: 10   # Increased from 1 to 10
+    max_in_flight: 10
     timeout: "5s"
     retry_as_batch: true
     max_retries: 3
-    compression: "snappy"  # Compress for faster transmission
+    compression: "snappy"
+
+# Separate topic for Pelion cloud data
+output_pelion:
+  kafka:
+    addresses:
+      - "redpanda:29092"
+    topic: "iot.telemetry.pelion"
+    key: "${! json(\"endpoint_name\") }"
+    max_in_flight: 10
+    timeout: "5s"
+    retry_as_batch: true
+    max_retries: 3
+    compression: "snappy"
 
 logger:
   level: INFO

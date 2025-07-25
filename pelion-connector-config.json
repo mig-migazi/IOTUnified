@@ -1,0 +1,19 @@
+{
+  "name": "pelion-websocket-source",
+  "config": {
+    "connector.class": "io.confluent.connect.websocket.WebSocketSourceConnector",
+    "websocket.uri": "wss://api.us.east-1.mbedcloud.com/v2/notification/websocket",
+    "websocket.headers": "Authorization:${PELION_API_KEY},Content-Type:application/json",
+    "websocket.topic": "device_notification",
+    "kafka.topic": "iot.telemetry.pelion",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "tasks.max": "1",
+    "websocket.client.id": "redpanda-connect-pelion",
+    "websocket.reconnect.interval.ms": "5000",
+    "websocket.connection.timeout.ms": "30000",
+    "websocket.max.reconnect.attempts": "10",
+    "websocket.keepalive.interval.ms": "30000"
+  }
+} 

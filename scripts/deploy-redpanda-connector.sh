@@ -1,8 +1,17 @@
 #!/bin/bash
-# Deploy Redpanda Connect Connector for LwM2M WebSocket Interface
-# This script deploys a connector to consume from LwM2M server WebSocket
+# Deploy Redpanda Connect Connectors
+# This script deploys connectors for both local LwM2M testing and Pelion cloud WebSocket
 
 set -e
+
+# Load environment variables from config file
+if [ -f "../config.env" ]; then
+    export $(cat ../config.env | grep -v '^#' | xargs)
+    echo "Loaded environment variables from config.env"
+elif [ -f "config.env" ]; then
+    export $(cat config.env | grep -v '^#' | xargs)
+    echo "Loaded environment variables from config.env"
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -45,79 +54,73 @@ done
 
 print_success "LwM2M server is ready!"
 
-# Create topics for the connector
+# Create topics for the connectors
 print_status "Creating Redpanda topics..."
-docker exec iot-redpanda rpk topic create iot.telemetry.lwm2m.websocket --partitions 3 --replicas 1 || print_warning "Topic may already exist"
-docker exec iot-redpanda rpk topic create iot.telemetry.lwm2m.http --partitions 3 --replicas 1 || print_warning "Topic may already exist"
+docker exec iot-redpanda rpk topic create iot.telemetry.lwm2m --partitions 3 --replicas 1 || print_warning "Topic may already exist"
+docker exec iot-redpanda rpk topic create iot.telemetry.pelion --partitions 3 --replicas 1 || print_warning "Topic may already exist"
 
 print_success "Topics created!"
 
-# Deploy the connector
-print_status "Deploying LwM2M HTTP source connector..."
+# Deploy local LwM2M connector
+print_status "Deploying local LwM2M HTTP source connector..."
 
-# First, let's try a simple HTTP source connector
-CONNECTOR_CONFIG='{
-  "name": "lwm2m-http-source",
+LOCAL_CONNECTOR_CONFIG='{
+  "name": "lwm2m-local-source",
   "config": {
     "connector.class": "io.confluent.connect.http.HttpSourceConnector",
-    "http.request.url": "http://lwm2m-server:8080/api/websocket/events",
+    "http.request.url": "http://lwm2m-server:8080/api/events",
     "http.request.method": "GET",
     "http.request.headers": "Content-Type:application/json",
-    "kafka.topic": "iot.telemetry.lwm2m.http",
+    "kafka.topic": "iot.telemetry.lwm2m",
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
     "value.converter.schemas.enable": "false",
     "tasks.max": "1",
-    "poll.interval.ms": "5000"
+    "poll.interval.ms": "1000"
   }
 }'
 
-# Deploy the connector
+# Deploy local LwM2M connector
 if curl -X POST -H "Content-Type: application/json" \
-    --data "$CONNECTOR_CONFIG" \
+    --data "$LOCAL_CONNECTOR_CONFIG" \
     http://localhost:8087/connectors; then
-    print_success "Connector deployed successfully!"
+    print_success "Local LwM2M connector deployed successfully!"
 else
-    print_warning "Failed to deploy connector. Checking available connectors..."
+    print_warning "Failed to deploy local LwM2M connector"
+fi
+
+# Deploy Pelion cloud connector (if API key is available)
+if [ -n "$PELION_API_KEY" ]; then
+    print_status "Deploying Pelion cloud WebSocket connector..."
     
-    # List available connectors
-    print_status "Available connectors:"
-    curl -s http://localhost:8087/connector-plugins | jq '.[].class' 2>/dev/null || echo "No connectors available"
-    
-    print_status "Trying alternative approach with custom connector..."
-    
-    # Alternative: Use a simple HTTP polling approach
-    print_status "Creating a simple HTTP polling connector..."
-    
-    SIMPLE_CONFIG='{
-      "name": "lwm2m-simple-source",
-      "config": {
-        "connector.class": "org.apache.kafka.connect.source.SourceConnector",
-        "tasks.max": "1",
-        "topic": "iot.telemetry.lwm2m.simple",
-        "http.url": "http://lwm2m-server:8080/api/websocket/events",
-        "poll.interval.ms": "10000"
-      }
-    }'
+    # Load Pelion connector config
+    PELION_CONFIG=$(cat pelion-connector-config.json)
     
     if curl -X POST -H "Content-Type: application/json" \
-        --data "$SIMPLE_CONFIG" \
+        --data "$PELION_CONFIG" \
         http://localhost:8087/connectors; then
-        print_success "Simple connector deployed!"
+        print_success "Pelion cloud connector deployed successfully!"
     else
-        print_error "Failed to deploy any connector. Manual configuration required."
-        print_status "Please check Redpanda Connect logs and configure manually."
+        print_warning "Failed to deploy Pelion connector"
     fi
+else
+    print_warning "PELION_API_KEY not set. Skipping Pelion connector deployment."
+    print_status "To enable Pelion connector, set PELION_API_KEY environment variable"
 fi
 
 # Check connector status
 print_status "Checking connector status..."
 sleep 5
-curl -s http://localhost:8087/connectors/lwm2m-http-source/status 2>/dev/null | jq . || \
-curl -s http://localhost:8087/connectors/lwm2m-simple-source/status 2>/dev/null | jq . || \
-print_warning "Connector status not available"
+
+print_status "Local LwM2M connector status:"
+curl -s http://localhost:8087/connectors/lwm2m-local-source/status 2>/dev/null | jq . || print_warning "Local connector status not available"
+
+if [ -n "$PELION_API_KEY" ]; then
+    print_status "Pelion cloud connector status:"
+    curl -s http://localhost:8087/connectors/pelion-websocket-source/status 2>/dev/null | jq . || print_warning "Pelion connector status not available"
+fi
 
 print_success "Redpanda Connect deployment completed!"
 print_status "You can now monitor data flow with:"
-echo "  docker exec iot-redpanda rpk topic consume iot.telemetry.lwm2m.http --follow"
-echo "  docker exec iot-redpanda rpk topic consume iot.telemetry.lwm2m.simple --follow" 
+echo "  docker exec iot-redpanda rpk topic consume iot.telemetry.lwm2m --follow"
+echo "  docker exec iot-redpanda rpk topic consume iot.telemetry.pelion --follow" 

@@ -1,15 +1,13 @@
-version: '3.8'
-
 services:
-  # MQTT Broker - Central message hub with TLS support
+  # MQTT Broker - Edge message hub for device interoperability
   mosquitto:
     image: eclipse-mosquitto:2.0
     container_name: lwm2m-mosquitto
     restart: unless-stopped
     ports:
-      - "1883:1883"     # Plain MQTT
-      - "8883:8883"     # MQTT over TLS
-      - "9001:9001"     # WebSocket
+      - "1883:1883"     # Plain MQTT (edge devices)
+      - "8883:8883"     # MQTT over TLS (edge devices)
+      - "9001:9001"     # WebSocket (edge devices)
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - ./mosquitto/passwd:/mosquitto/config/passwd
@@ -19,7 +17,7 @@ services:
     networks:
       - iot-network
 
-  # Redpanda - High-performance event streaming platform
+  # Redpanda - Cloud event streaming platform (LwM2M only)
   redpanda:
     image: redpandadata/redpanda:latest
     container_name: iot-redpanda
@@ -64,7 +62,7 @@ services:
     networks:
       - iot-network
 
-  # Redpanda Connect - WebSocket to Kafka Bridge
+  # Redpanda Connect - HTTP to Kafka Bridge (LwM2M events only)
   redpanda-connect:
     image: redpandadata/connect:latest
     container_name: iot-redpanda-connect
@@ -79,13 +77,13 @@ services:
     networks:
       - iot-network
 
-  # LwM2M Server - Device management via MQTT transport
+  # LwM2M Server - Cloud device management and event streaming
   lwm2m-server:
     build: ./lwm2m-server
     container_name: lwm2m-server
     restart: unless-stopped
     ports:
-      - "8080:8080"     # Web UI
+      - "8080:8080"     # Web UI & HTTP API
       - "5684:5684/udp" # CoAP (backup transport)
     environment:
       - MQTT_BROKER_HOST=mosquitto
@@ -101,28 +99,7 @@ services:
     networks:
       - iot-network
 
-  # Sparkplug B Host Application - Telemetry data processor
-  sparkplug-host:
-    build: ./sparkplug-host
-    container_name: sparkplug-host
-    restart: unless-stopped
-    ports:
-      - "8081:8081"     # Metrics endpoint
-    environment:
-      - MQTT_BROKER_HOST=mosquitto
-      - MQTT_BROKER_PORT=8883
-      - MQTT_USE_TLS=true
-      - METRICS_PORT=8081
-      - GROUP_ID=IIoT
-      - SPARKPLUG_NAMESPACE=spBv1.0
-    volumes:
-      - ./certs:/app/certs:ro
-    depends_on:
-      - mosquitto
-    networks:
-      - iot-network
-
-  # Device Simulator - Generates both LwM2M and Sparkplug B traffic
+  # Device Simulator - Edge devices with LwM2M (cloud) + Sparkplug B (edge)
   device-simulator:
     build: ./device-simulator
     restart: unless-stopped
@@ -144,7 +121,6 @@ services:
     depends_on:
       - mosquitto
       - lwm2m-server
-      - sparkplug-host
     networks:
       - iot-network
     deploy:
@@ -190,7 +166,7 @@ services:
     networks:
       - iot-network
 
-  # MQTT Message Monitor - Real-time message inspection
+  # MQTT Message Monitor - Edge device interoperability monitoring
   mqtt-monitor:
     build: ./mqtt-monitor
     container_name: mqtt-monitor
