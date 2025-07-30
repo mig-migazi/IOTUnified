@@ -1,5 +1,37 @@
 # FDI (Field Device Integration) Implementation
 
+## Quick Start
+
+### Prerequisites
+- Python 3.8 or higher
+- pip3
+- Git
+
+### Setup (First Time)
+```bash
+# Clone the repository
+git clone <repository-url>
+cd fdi/fdi-local
+
+# Run the setup script
+./setup.sh
+```
+
+### Start the System
+```bash
+# Start all components
+./start.sh
+
+# Access the web UI
+open http://localhost:8080
+```
+
+### Stop the System
+```bash
+# Stop all components
+./stop.sh
+```
+
 ## Overview
 
 This implementation provides a complete FDI (Field Device Integration) stack that enables standardized device integration, configuration, and management in industrial IoT environments. The solution demonstrates how FDI standards can be deployed on devices and gateways to provide infrastructure supporting the FDI standard.
@@ -650,6 +682,68 @@ To add support for a new protocol:
 This FDI implementation demonstrates how standardized device integration can transform industrial IoT deployments. By providing a complete stack that supports FDI standards, organizations can achieve faster device integration, improved operational efficiency, and future-proof their IoT infrastructure.
 
 The smart breaker simulator showcases how real devices can leverage this stack to provide FDI-compliant behavior, enabling seamless integration into larger industrial systems while maintaining vendor independence and operational flexibility.
+
+## Troubleshooting
+
+### Common Issues
+
+**1. "No such file or directory: ./venv/bin/python"**
+```bash
+# Recreate virtual environment
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+**2. "Protobuf not available" error**
+```bash
+# Regenerate protobuf files
+cd simulators/proto
+protoc --python_out=. sparkplug_b.proto
+# Fix compatibility issues
+python3 -c "
+import re
+with open('sparkplug_b_pb2.py', 'r') as f:
+    content = f.read()
+content = re.sub(r'from google\.protobuf import runtime_version as _runtime_version\n', '', content)
+content = re.sub(r'_runtime_version\.ValidateProtobufRuntimeVersion\([^)]*\)\n', '', content)
+with open('sparkplug_b_pb2.py', 'w') as f:
+    f.write(content)
+"
+cd ../..
+```
+
+**3. "No devices found"**
+- Check that all components are running: `ps aux | grep python`
+- Check logs: `tail -f logs/*.log`
+- Ensure MQTT broker is running: `brew services list | grep mosquitto`
+
+**4. Port conflicts**
+- Check if ports are in use: `lsof -i :8080` or `lsof -i :4840`
+- Stop conflicting services or change ports in configuration
+
+### Manual Setup (if setup.sh fails)
+
+```bash
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Install protobuf compiler
+brew install protobuf  # macOS
+# or: sudo apt-get install protobuf-compiler  # Ubuntu
+
+# Generate protobuf files
+cd simulators/proto
+protoc --python_out=. sparkplug_b.proto
+cd ../..
+
+# Create logs directory
+mkdir -p logs
+```
 
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
 │                              Deployment Scenarios                                │
