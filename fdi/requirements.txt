@@ -1,0 +1,27 @@
+# FDI OPC UA Communication Server Requirements
+# Core dependencies for the OPC UA Communication Server and Siemens PDM Simulator
+
+# Web framework for Siemens PDM Simulator
+fastapi==0.104.1
+uvicorn==0.24.0
+jinja2==3.1.2
+pydantic==2.5.0
+
+# OPC UA communication (modern async library)
+asyncua==1.0.1
+
+# MQTT communication for Sparkplug B
+paho-mqtt==1.6.1
+
+# Protobuf for Sparkplug B parsing
+protobuf==4.24.4
+
+# Structured logging
+structlog==23.2.0
+
+# Data generation for device simulator
+faker==20.1.0
+
+# Development and testing
+pytest==7.4.2
+pytest-asyncio==0.21.1 

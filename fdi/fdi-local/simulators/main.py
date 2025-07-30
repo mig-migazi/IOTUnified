@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import os
+import random
 import ssl
 import time
 import threading
@@ -29,9 +30,9 @@ from faker import Faker
 
 # Import protobuf
 try:
-    from proto.sparkplug_b_pb2 import Payload, Metric, DataType
+    from shared.proto.sparkplug_b_pb2 import Payload, Metric, DataType
 except ImportError:
-    print("Protobuf bindings not found. Run: protoc --python_out=. proto/sparkplug_b.proto")
+    print("Protobuf bindings not found. Run: protoc --python_out=. shared/proto/sparkplug_b.proto")
     exit(1)
 
 # Configure structured logging
@@ -86,7 +87,7 @@ class HighPerformanceDeviceSimulator:
         
         # MQTT client optimized for high throughput
         self.mqtt_client = mqtt.Client(
-            client_id=f"{config.device_id}",
+            client_id=f"{config.device_id}-{int(time.time())}",
             protocol=mqtt.MQTTv311,
             clean_session=True
         )
@@ -110,11 +111,21 @@ class HighPerformanceDeviceSimulator:
         # Thread pool for message processing
         self.executor = ThreadPoolExecutor(max_workers=4)
         
+        print("Initializing MQTT client...")
         self.setup_mqtt_client()
-        self.pre_generate_payloads()
+        print("Pre-generating payloads...")
+        try:
+            self.pre_generate_payloads()
+            print("Payload generation successful")
+        except Exception as e:
+            print(f"Payload generation failed: {e}")
+            import traceback
+            traceback.print_exc()
 
     def setup_mqtt_client(self):
         """Configure MQTT client optimized for high throughput"""
+        print(f"Setting up MQTT client - TLS: {self.config.mqtt_use_tls}, Username: {self.config.mqtt_username}")
+        
         # Skip authentication if no username provided
         if self.config.mqtt_username and self.config.mqtt_username != "":
             self.mqtt_client.username_pw_set(
@@ -127,16 +138,21 @@ class HighPerformanceDeviceSimulator:
         self.mqtt_client.max_queued_messages_set(1000)   # Larger message queue
         
         if self.config.mqtt_use_tls:
+            print("Setting up TLS context...")
             context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
             context.check_hostname = False
             context.verify_mode = ssl.CERT_NONE
             self.mqtt_client.tls_set_context(context)
+            print("TLS context set")
+        else:
+            print("No TLS configured")
         
         # Callbacks
         self.mqtt_client.on_connect = self._on_mqtt_connect
         self.mqtt_client.on_disconnect = self._on_mqtt_disconnect
         self.mqtt_client.on_message = self._on_mqtt_message
         self.mqtt_client.on_publish = self._on_mqtt_publish
+        print("MQTT client setup complete")
 
     def pre_generate_payloads(self):
         """Pre-generate common payloads to avoid runtime serialization overhead"""
@@ -171,8 +187,10 @@ class HighPerformanceDeviceSimulator:
 
     def _on_mqtt_connect(self, client, userdata, flags, rc):
         """MQTT connection callback"""
+        print(f"MQTT connection callback called with rc={rc}")
         if rc == 0:
             self.mqtt_connected = True
+            print("MQTT connection flag set to True")
             self.logger.info("MQTT connected", result_code=rc)
             
             # Subscribe to command topics
@@ -506,7 +524,130 @@ class HighPerformanceDeviceSimulator:
         payload.seq = self.sparkplug_seq
         
         # Generate realistic sensor data based on device type
-        if self.config.device_type == "temperature_sensor":
+        if self.config.device_type == "smart_breaker":
+            # Smart circuit breaker with electrical monitoring - ALL 47 FDI CAPABILITIES
+            try:
+                # Simple, reliable data generation without complex dependencies
+                base_time = time.time()
+                current_a = 45.0 + 15.0 * math.sin(base_time / 30) + random.uniform(-1.0, 1.0)
+                current_b = 43.0 + 12.0 * math.sin(base_time / 35) + random.uniform(-1.0, 1.0)
+                current_c = 47.0 + 18.0 * math.sin(base_time / 25) + random.uniform(-1.0, 1.0)
+                voltage_a = 480 + 20 * math.sin(base_time / 60) + random.uniform(-3, 3)
+                voltage_b = 475 + 15 * math.sin(base_time / 65) + random.uniform(-3, 3)
+                voltage_c = 485 + 25 * math.sin(base_time / 55) + random.uniform(-3, 3)
+                power_factor = 0.92 + 0.05 * math.sin(base_time / 90) + random.uniform(-0.01, 0.01)
+                active_power = 22000 + 5000 * math.sin(base_time / 45) + random.uniform(-200, 200)
+                reactive_power = 8000 + 2000 * math.sin(base_time / 75) + random.uniform(-100, 100)
+                apparent_power = 25000 + 6000 * math.sin(base_time / 40) + random.uniform(-300, 300)
+                frequency = 60.0 + 0.1 * math.sin(base_time / 120) + random.uniform(-0.01, 0.01)
+                breaker_temp = 25 + 10 * math.sin(base_time / 120) + random.uniform(-2, 2)
+                trip_count = random.randint(0, 10)
+                trip_current = 95.0 + random.uniform(-5, 5)
+                trip_delay = 50.0 + random.uniform(-10, 10)
+                ground_fault_current = 5.0 + random.uniform(-1, 1)
+                arc_fault_detected = random.choice([True, False])
+                maintenance_due = random.choice([True, False])
+                operating_hours = int(base_time - self.start_time) // 3600
+                load_percentage = 75.0 + 20.0 * math.sin(base_time / 60) + random.uniform(-2, 2)
+                harmonic_distortion = 2.5 + 1.5 * math.sin(base_time / 180) + random.uniform(-0.1, 0.1)
+                position = 1 if random.random() > 0.1 else 0  # 1=closed, 0=open
+                remote_control_enabled = True
+                auto_reclose_enabled = True
+                auto_reclose_attempts = random.randint(0, 3)
+                alarm_status = 0 if random.random() > 0.05 else 1  # 0=normal, 1=alarm
+                communication_status = 1  # 1=connected
+                
+                # Protection settings
+                overcurrent_pickup = 100.0 + random.uniform(-5, 5)
+                overcurrent_delay = 100.0 + random.uniform(-10, 10)
+                ground_fault_pickup = 20.0 + random.uniform(-2, 2)
+                ground_fault_delay = 200.0 + random.uniform(-20, 20)
+                arc_fault_pickup = 50.0 + random.uniform(-5, 5)
+                arc_fault_delay = 50.0 + random.uniform(-5, 5)
+                thermal_pickup = 80.0 + random.uniform(-5, 5)
+                thermal_delay = 300.0 + random.uniform(-30, 30)
+                instantaneous_pickup = 200.0 + random.uniform(-10, 10)
+                auto_reclose_delay = 1000.0 + random.uniform(-100, 100)
+                protection_enabled = True
+                
+                # Simple trip logic
+                trip_status = 0  # 0=normal, 1=tripped
+                if current_a > 95 or current_b > 95 or current_c > 95:
+                    trip_status = 1
+                    
+                trip_reason = "normal"
+                if trip_status == 1:
+                    trip_reason = "overcurrent"
+                    
+                last_trip_time = "2024-01-15T10:30:00Z" if trip_count > 0 else ""
+                
+                metrics_data = [
+                    # Device information (5 metrics)
+                    ("Device/Type", 12, "SmartCircuitBreaker"),  # STRING = 12
+                    ("Device/Manufacturer", 12, "Smart"),
+                    ("Device/Model", 12, "XSeries-SmartBreaker"),
+                    ("Device/SerialNumber", 12, "ETN-XSB-001"),
+                    ("Device/FirmwareVersion", 12, "2.1.0"),
+                    ("Device/Online", 11, True),  # BOOLEAN = 11
+                    
+                    # Breaker electrical measurements (15 metrics)
+                    ("Breaker/Status", 3, trip_status),  # INT32 = 3
+                    ("Breaker/CurrentPhaseA", 9, current_a),  # FLOAT = 9
+                    ("Breaker/CurrentPhaseB", 9, current_b),
+                    ("Breaker/CurrentPhaseC", 9, current_c),
+                    ("Breaker/VoltagePhaseA", 9, voltage_a),
+                    ("Breaker/VoltagePhaseB", 9, voltage_b),
+                    ("Breaker/VoltagePhaseC", 9, voltage_c),
+                    ("Breaker/PowerFactor", 9, power_factor),
+                    ("Breaker/ActivePower", 9, active_power),
+                    ("Breaker/ReactivePower", 9, reactive_power),
+                    ("Breaker/ApparentPower", 9, apparent_power),
+                    ("Breaker/Frequency", 9, frequency),
+                    ("Breaker/Temperature", 9, breaker_temp),
+                    ("Breaker/TripCount", 3, trip_count),
+                    ("Breaker/LastTripTime", 12, last_trip_time),
+                    ("Breaker/TripReason", 12, trip_reason),
+                    ("Breaker/TripCurrent", 9, trip_current),
+                    ("Breaker/TripDelay", 9, trip_delay),
+                    ("Breaker/GroundFaultCurrent", 9, ground_fault_current),
+                    ("Breaker/ArcFaultDetected", 11, arc_fault_detected),
+                    ("Breaker/MaintenanceDue", 11, maintenance_due),
+                    ("Breaker/OperatingHours", 3, operating_hours),
+                    ("Breaker/LoadPercentage", 9, load_percentage),
+                    ("Breaker/HarmonicDistortion", 9, harmonic_distortion),
+                    ("Breaker/Position", 3, position),
+                    ("Breaker/RemoteControlEnabled", 11, remote_control_enabled),
+                    ("Breaker/AutoRecloseEnabled", 11, auto_reclose_enabled),
+                    ("Breaker/AutoRecloseAttempts", 3, auto_reclose_attempts),
+                    ("Breaker/AlarmStatus", 3, alarm_status),
+                    ("Breaker/CommunicationStatus", 3, communication_status),
+                    
+                    # Protection settings (10 metrics)
+                    ("Protection/OvercurrentPickup", 9, overcurrent_pickup),
+                    ("Protection/OvercurrentDelay", 9, overcurrent_delay),
+                    ("Protection/GroundFaultPickup", 9, ground_fault_pickup),
+                    ("Protection/GroundFaultDelay", 9, ground_fault_delay),
+                    ("Protection/ArcFaultPickup", 9, arc_fault_pickup),
+                    ("Protection/ArcFaultDelay", 9, arc_fault_delay),
+                    ("Protection/ThermalPickup", 9, thermal_pickup),
+                    ("Protection/ThermalDelay", 9, thermal_delay),
+                    ("Protection/InstantaneousPickup", 9, instantaneous_pickup),
+                    ("Protection/AutoRecloseDelay", 9, auto_reclose_delay),
+                    ("Protection/Enabled", 11, protection_enabled),
+                ]
+            except Exception as e:
+                # Fallback to basic metrics if anything fails
+                self.logger.warning("Smart breaker data generation failed, using fallback", error=str(e))
+                metrics_data = [
+                    ("Breaker/Current", 10, 50.0),
+                    ("Breaker/Voltage", 10, 480.0),
+                    ("Breaker/Status", 12, "normal"),
+                    ("Breaker/Position", 12, "closed"),
+                    ("Device/Uptime", 8, int(time.time() - self.start_time)),
+                    ("Status/DeviceHealth", 12, "NORMAL"),
+                ]
+                
+        elif self.config.device_type == "temperature_sensor":
             temp, humidity = self._get_realistic_temperature_data()
             self._last_temperature = temp  # Store for battery calculations
             battery_level, battery_voltage = self._get_realistic_battery_data()
@@ -620,6 +761,48 @@ class HighPerformanceDeviceSimulator:
                 ("Status/DeviceHealth", 12, "NORMAL" if oil_temperature < 85 else "HIGH_TEMPERATURE"),
             ]
             
+        elif self.config.device_type == "smart_breaker":
+            # Smart circuit breaker with electrical monitoring - SIMPLIFIED AND ROBUST
+            try:
+                # Simple, reliable data generation without complex dependencies
+                base_time = time.time()
+                current = 45.0 + 15.0 * math.sin(base_time / 30) + random.uniform(-1.0, 1.0)
+                voltage = 480 + 20 * math.sin(base_time / 60) + random.uniform(-3, 3)
+                power_factor = 0.92 + 0.05 * math.sin(base_time / 90) + random.uniform(-0.01, 0.01)
+                breaker_temp = 25 + 10 * math.sin(base_time / 120) + random.uniform(-2, 2)
+                
+                # Simple trip logic
+                trip_status = "normal"
+                if current > 95:
+                    trip_status = "trip"
+                elif current > 80:
+                    trip_status = "warning"
+                    
+                breaker_position = "closed" if trip_status != "trip" else "open"
+                
+                metrics_data = [
+                    ("Breaker/Current", 10, current),
+                    ("Breaker/Voltage", 10, voltage),
+                    ("Breaker/Temperature", 10, breaker_temp),
+                    ("Breaker/PowerFactor", 10, power_factor),
+                    ("Breaker/Status", 12, trip_status),
+                    ("Breaker/Position", 12, breaker_position),
+                    ("Breaker/TripCount", 3, random.randint(0, 10)),
+                    ("Device/Uptime", 8, int(base_time - self.start_time)),
+                    ("Status/DeviceHealth", 12, "NORMAL"),
+                ]
+            except Exception as e:
+                # Fallback to basic metrics if anything fails
+                self.logger.warning("Smart breaker data generation failed, using fallback", error=str(e))
+                metrics_data = [
+                    ("Breaker/Current", 10, 50.0),
+                    ("Breaker/Voltage", 10, 480.0),
+                    ("Breaker/Status", 12, "normal"),
+                    ("Breaker/Position", 12, "closed"),
+                    ("Device/Uptime", 8, int(time.time() - self.start_time)),
+                    ("Status/DeviceHealth", 12, "NORMAL"),
+                ]
+            
         elif self.config.device_type == "motor_monitor":
             # Motor monitoring with electrical and mechanical parameters
             vib_x, vib_y, vib_z = self._get_vibration_data()
@@ -658,74 +841,113 @@ class HighPerformanceDeviceSimulator:
                 ("Status/DeviceHealth", 12, "NORMAL"),
             ]
         
-        # Build protobuf payload
-        for name, datatype, value in metrics_data:
-            metric = payload.metrics.add()
-            metric.name = name
-            metric.datatype = datatype
-            metric.timestamp = payload.timestamp
+        # Build protobuf payload with robust error handling
+        try:
+            for name, datatype, value in metrics_data:
+                metric = payload.metrics.add()
+                metric.name = name
+                metric.datatype = datatype
+                metric.timestamp = payload.timestamp
+                
+                if datatype == 10:  # DOUBLE
+                    metric.double_value = float(value)
+                elif datatype == 8:  # UINT64
+                    metric.long_value = int(value)
+                elif datatype == 3:  # INT32
+                    metric.int_value = int(value)
+                elif datatype == 9:  # FLOAT
+                    metric.float_value = float(value)
+                elif datatype == 12:  # STRING
+                    metric.string_value = str(value)
+                elif datatype == 11:  # BOOLEAN
+                    metric.boolean_value = bool(value)
             
-            if datatype == 10:  # DOUBLE
-                metric.double_value = float(value)
-            elif datatype == 8:  # UINT64
-                metric.long_value = int(value)
-            elif datatype == 3:  # INT32
-                metric.int_value = int(value)
-            elif datatype == 9:  # FLOAT
-                metric.float_value = float(value)
-            elif datatype == 12:  # STRING
-                metric.string_value = str(value)
-            elif datatype == 11:  # BOOLEAN
-                metric.boolean_value = bool(value)
-        
-        self.sparkplug_seq += 1
-        return payload.SerializeToString()
+            self.sparkplug_seq += 1
+            return payload.SerializeToString()
+            
+        except Exception as e:
+            # Fallback to basic payload if anything fails
+            self.logger.warning("Payload generation failed, using fallback", error=str(e))
+            fallback_payload = Payload()
+            fallback_payload.timestamp = int(time.time() * 1000)
+            fallback_payload.seq = self.sparkplug_seq
+            
+            # Add basic metrics
+            metric = fallback_payload.metrics.add()
+            metric.name = "Device/Status"
+            metric.datatype = 12  # STRING
+            metric.string_value = "online"
+            metric.timestamp = fallback_payload.timestamp
+            
+            metric = fallback_payload.metrics.add()
+            metric.name = "Device/Uptime"
+            metric.datatype = 8  # UINT64
+            metric.long_value = int(time.time() - self.start_time)
+            metric.timestamp = fallback_payload.timestamp
+            
+            self.sparkplug_seq += 1
+            return fallback_payload.SerializeToString()
 
     def high_frequency_telemetry_thread(self):
         """High-frequency telemetry thread - optimized for performance"""
+        print("Telemetry thread starting...")
         self.logger.info("Starting high-frequency telemetry thread", 
                         interval=self.config.telemetry_interval)
         
         # Wait for MQTT connection
+        print("Waiting for MQTT connection in telemetry thread...")
         while not self.mqtt_connected and self.running:
             time.sleep(0.1)
+        
+        print(f"MQTT connected in telemetry thread: {self.mqtt_connected}")
         
         if not self.running:
             return
             
         # Send birth certificate
         birth_topic = f"{self.config.sparkplug_namespace}/{self.config.group_id}/DBIRTH/{self.config.device_id}"
+        print(f"Sending birth certificate to topic: {birth_topic}")
         self.mqtt_client.publish(birth_topic, self.sparkplug_birth_payload.SerializeToString())
+        print("Birth certificate sent")
         self.logger.info("Sparkplug birth certificate sent")
         
         # High-frequency telemetry loop
         next_send_time = time.time()
+        message_count = 0
         while self.running and self.mqtt_connected:
             try:
                 # Generate and send telemetry
+                print(f"DEBUG: Creating telemetry payload #{message_count + 1}")
                 telemetry_data = self._create_high_frequency_telemetry_payload()
                 data_topic = f"{self.config.sparkplug_namespace}/{self.config.group_id}/DDATA/{self.config.device_id}"
                 
+                print(f"DEBUG: Publishing DDATA to topic: {data_topic}")
                 result = self.mqtt_client.publish(data_topic, telemetry_data, qos=0)
+                message_count += 1
+                print(f"DEBUG: Published DDATA message #{message_count}")
                 
                 if result.rc != mqtt.MQTT_ERR_SUCCESS:
                     self.logger.warning("Publish failed", error_code=result.rc)
+                    print(f"DEBUG: Publish failed with error code: {result.rc}")
                 
                 # Precise timing for high frequency
                 next_send_time += self.config.telemetry_interval
                 sleep_time = next_send_time - time.time()
                 
                 if sleep_time > 0:
+                    print(f"DEBUG: Sleeping for {sleep_time:.2f} seconds")
                     time.sleep(sleep_time)
                 else:
                     # We're behind schedule, log warning
                     if sleep_time < -0.1:  # More than 100ms behind
                         self.logger.warning("Telemetry thread falling behind", 
                                           behind_seconds=-sleep_time)
+                        print(f"DEBUG: Telemetry thread falling behind by {-sleep_time:.2f} seconds")
                     next_send_time = time.time()
                     
             except Exception as e:
                 self.logger.error("Error in telemetry thread", error=str(e))
+                print(f"DEBUG: Error in telemetry thread: {str(e)}")
                 time.sleep(1)  # Backoff on error
 
     def lwm2m_management_thread(self):
@@ -813,46 +1035,70 @@ class HighPerformanceDeviceSimulator:
         """Main device simulation with multi-threading for high performance"""
         self.start_time = time.time()
         self.logger.info("Starting high-performance device simulator")
+        print("Starting high-performance device simulator")
         
         try:
             # Connect to MQTT broker
             self.logger.info("Connecting to MQTT broker", 
                            host=self.config.mqtt_broker_host, 
                            port=self.config.mqtt_broker_port)
+            print(f"Connecting to MQTT broker: {self.config.mqtt_broker_host}:{self.config.mqtt_broker_port}")
             
-            self.mqtt_client.connect(
-                self.config.mqtt_broker_host, 
-                self.config.mqtt_broker_port, 
-                60
-            )
+            print(f"Attempting MQTT connection with 10 second timeout...")
+            try:
+                self.mqtt_client.connect(
+                    self.config.mqtt_broker_host, 
+                    self.config.mqtt_broker_port, 
+                    10
+                )
+                print("MQTT connect() call completed")
+            except Exception as e:
+                print(f"MQTT connect() failed: {e}")
+                import traceback
+                traceback.print_exc()
+                raise
             
             # Start MQTT loop in background
+            print("Starting MQTT loop...")
             self.mqtt_client.loop_start()
+            print("MQTT loop started")
             
             # Wait for MQTT connection
+            print("Waiting for MQTT connection...")
             retry_count = 0
             while not self.mqtt_connected and retry_count < 30:
                 time.sleep(1)
                 retry_count += 1
+                print(f"Connection attempt {retry_count}/30, connected: {self.mqtt_connected}")
             
             if not self.mqtt_connected:
+                print("Failed to connect to MQTT broker")
                 raise Exception("Failed to connect to MQTT broker")
+            else:
+                print("MQTT connection confirmed")
             
             self.logger.info("MQTT connected successfully")
             
             # Start high-performance threads
+            print("Creating telemetry thread...")
             telemetry_thread = threading.Thread(
                 target=self.high_frequency_telemetry_thread,
                 name=f"{self.config.device_id}-telemetry"
             )
             
+            print("Creating management thread...")
             management_thread = threading.Thread(
                 target=self.lwm2m_management_thread,
                 name=f"{self.config.device_id}-management"
             )
             
+            print("Starting telemetry thread...")
             telemetry_thread.start()
+            print("Telemetry thread started")
+            
+            print("Starting management thread...")
             management_thread.start()
+            print("Management thread started")
             
             self.logger.info("High-performance threads started", 
                            telemetry_rate=f"{1/self.config.telemetry_interval:.1f}/sec",
@@ -886,6 +1132,7 @@ def create_device_config() -> DeviceConfig:
     
     # Enhanced device types with realistic sensor patterns and industrial IoT scenarios
     device_types = [
+        "smart_breaker",        # Smart circuit breaker with electrical monitoring
         "temperature_sensor",    # Environmental monitoring with daily cycles
         "pressure_sensor",       # Process control with system variations 
         "flow_sensor",          # Demand-based flow patterns
@@ -896,37 +1143,42 @@ def create_device_config() -> DeviceConfig:
     ]
     device_type = device_types[device_index % len(device_types)]
     
-    # HARDCODED VALUES FOR 100 MSG/SEC - NO MORE ENV VARIABLE ISSUES!
-    # Sparkplug B: 0.0105 seconds = 95.24 msg/sec
-    # LwM2M: 0.2 seconds = 5 msg/sec
-    # Total: 100.24 msg/sec
+    # STABLE VALUES FOR RELIABLE OPERATION!
+    # Sparkplug B: 1.0 seconds = 1 msg/sec
+    # LwM2M: 5.0 seconds = 1 msg/5sec
+    # Total: 1.2 msg/sec - STABLE!
     
     return DeviceConfig(
-        device_id=f"device-{device_type}-{device_index:03d}",
-        device_type=device_type,
-        mqtt_broker_host=os.getenv("MQTT_BROKER_HOST", "mosquitto"),
-        mqtt_broker_port=int(os.getenv("MQTT_BROKER_PORT", "8883")),
-        mqtt_username=os.getenv("MQTT_USERNAME", "device"),
-        mqtt_password=os.getenv("MQTT_PASSWORD", "testpass123"),
-        mqtt_use_tls=os.getenv("MQTT_USE_TLS", "true").lower() == "true",
-        lwm2m_server_host=os.getenv("LWM2M_SERVER_HOST", "lwm2m-server"),
-        lwm2m_server_port=int(os.getenv("LWM2M_SERVER_PORT", "8080")),
-        group_id=os.getenv("GROUP_ID", "IIoT"),
-        sparkplug_namespace=os.getenv("SPARKPLUG_NAMESPACE", "spBv1.0"),
-        telemetry_interval=0.001,   # 1000 msg/sec - CRANKED UP!
-        lwm2m_interval=0.005       # 200 msg/sec - GOING FOR BROKE!
-    )
+            device_id=f"device-{device_type}-{device_index:03d}",
+            device_type=device_type,
+            mqtt_broker_host=os.getenv("MQTT_BROKER_HOST", "mosquitto"),
+            mqtt_broker_port=int(os.getenv("MQTT_BROKER_PORT", "1883")),
+            mqtt_username=os.getenv("MQTT_USERNAME", ""),
+            mqtt_password=os.getenv("MQTT_PASSWORD", ""),
+            mqtt_use_tls=os.getenv("MQTT_USE_TLS", "false").lower() == "true",
+            lwm2m_server_host=os.getenv("LWM2M_SERVER_HOST", "lwm2m-server"),
+            lwm2m_server_port=int(os.getenv("LWM2M_SERVER_PORT", "8080")),
+            group_id=os.getenv("GROUP_ID", "IIoT"),
+            sparkplug_namespace=os.getenv("SPARKPLUG_NAMESPACE", "spBv1.0"),
+            telemetry_interval=1.0,    # 1 msg/sec - STABLE!
+            lwm2m_interval=5.0        # 1 msg/5sec - STABLE!
+        )
 
 def main():
     """Main entry point"""
+    print("Creating device config...")
     config = create_device_config()
+    print(f"Device config created: {config.device_id}")
     
     # Create and run multiple devices if configured
     device_count = int(os.getenv("DEVICE_COUNT", "1"))
+    print(f"Device count: {device_count}")
     
     if device_count == 1:
         # Single device mode
+        print("Creating single device simulator...")
         simulator = HighPerformanceDeviceSimulator(config)
+        print("Starting simulator...")
         simulator.run()
     else:
         # Multi-device mode with separate processes for better isolation
@@ -956,9 +1208,12 @@ def main():
 
 if __name__ == "__main__":
     try:
+        print("Starting device simulator...")
         main()
     except KeyboardInterrupt:
         print("Device simulator stopped by user")
     except Exception as e:
         print(f"Device simulator error: {e}")
+        import traceback
+        traceback.print_exc()
         exit(1) 

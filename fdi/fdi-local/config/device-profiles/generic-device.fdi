@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DevicePackage xmlns="http://www.opcfoundation.org/FDI/DevicePackage"
+               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xsi:schemaLocation="http://www.opcfoundation.org/FDI/DevicePackage FDI_DevicePackage.xsd">
+    
+    <DeviceIdentity>
+        <DeviceType>GenericDevice</DeviceType>
+        <DeviceRevision>1.0</DeviceRevision>
+        <DeviceManufacturer>Generic</DeviceManufacturer>
+        <DeviceModel>GenericDevice</DeviceModel>
+        <DeviceSerialNumber>GENERIC-001</DeviceSerialNumber>
+        <DeviceVersion>1.0.0</DeviceVersion>
+        <DeviceDescription>Generic device template for FDI server</DeviceDescription>
+    </DeviceIdentity>
+    
+    <DeviceCapabilities>
+        <CommunicationProtocols>
+            <!-- OPC UA Communication -->
+            <Protocol name="OPC UA" version="1.04" transport="TCP">
+                <ObjectModel>
+                    <Object ID="1000" name="GenericDevice">
+                        <Instance ID="0">
+                            <Resource ID="1" name="DeviceType" type="String" mandatory="true"/>
+                            <Resource ID="2" name="Manufacturer" type="String" mandatory="true"/>
+                            <Resource ID="3" name="Model" type="String" mandatory="true"/>
+                            <Resource ID="4" name="SerialNumber" type="String" mandatory="true"/>
+                            <Resource ID="5" name="Version" type="String" mandatory="true"/>
+                            <Resource ID="6" name="Status" type="Integer" units="%" range="0-100"/>
+                            <Resource ID="7" name="CommunicationStatus" type="Integer"/>
+                            <Resource ID="8" name="LastSeen" type="Time"/>
+                        </Instance>
+                    </Object>
+                </ObjectModel>
+            </Protocol>
+            
+            <!-- MQTT Communication -->
+            <Protocol name="MQTT" version="3.1.1" transport="TCP">
+                <Topics>
+                    <Topic name="fdi/{device_id}/register" direction="in"/>
+                    <Topic name="fdi/{device_id}/command" direction="out"/>
+                    <Topic name="fdi/{device_id}/status" direction="in"/>
+                    <Topic name="fdi/{device_id}/config" direction="in"/>
+                </Topics>
+            </Protocol>
+            
+            <!-- HART Communication -->
+            <Protocol name="HART" version="7" transport="Serial">
+                <Commands>
+                    <Command number="0" name="ReadPrimaryVariable"/>
+                    <Command number="1" name="ReadLoopCurrentAndPercentOfRange"/>
+                    <Command number="2" name="ReadDynamicVariablesAndLoopCurrent"/>
+                    <Command number="3" name="ReadDeviceVariables"/>
+                    <Command number="9" name="ReadLoopConfiguration"/>
+                    <Command number="11" name="ReadDeviceIdentification"/>
+                    <Command number="33" name="ReadDeviceVariablesWithStatus"/>
+                    <Command number="48" name="ReadAdditionalDeviceStatus"/>
+                </Commands>
+            </Protocol>
+            
+            <!-- Modbus Communication -->
+            <Protocol name="Modbus" version="1.0" transport="TCP">
+                <Registers>
+                    <Register type="Holding" start="1000" count="100"/>
+                    <Register type="Input" start="2000" count="100"/>
+                    <Register type="Coil" start="3000" count="100"/>
+                    <Register type="Discrete" start="4000" count="100"/>
+                </Registers>
+            </Protocol>
+        </CommunicationProtocols>
+        
+        <ConfigurationTemplates>
+            <Template name="StandardConfiguration">
+                <Description>Standard configuration for generic devices</Description>
+                <Parameters>
+                    <Parameter name="polling_interval" type="Float" units="seconds" default="1.0" range="0.1-60.0"/>
+                    <Parameter name="timeout" type="Float" units="seconds" default="5.0" range="1.0-30.0"/>
+                    <Parameter name="retry_count" type="Integer" default="3" range="1-10"/>
+                    <Parameter name="enable_logging" type="Boolean" default="true"/>
+                </Parameters>
+            </Template>
+            
+            <Template name="HighPerformanceConfiguration">
+                <Description>High performance configuration for critical applications</Description>
+                <Parameters>
+                    <Parameter name="polling_interval" type="Float" units="seconds" default="0.1" range="0.01-1.0"/>
+                    <Parameter name="timeout" type="Float" units="seconds" default="1.0" range="0.1-10.0"/>
+                    <Parameter name="retry_count" type="Integer" default="5" range="1-20"/>
+                    <Parameter name="enable_logging" type="Boolean" default="false"/>
+                    <Parameter name="priority" type="Integer" default="1" range="1-10"/>
+                </Parameters>
+            </Template>
+            
+            <Template name="LowPowerConfiguration">
+                <Description>Low power configuration for battery-operated devices</Description>
+                <Parameters>
+                    <Parameter name="polling_interval" type="Float" units="seconds" default="10.0" range="1.0-3600.0"/>
+                    <Parameter name="timeout" type="Float" units="seconds" default="30.0" range="5.0-300.0"/>
+                    <Parameter name="retry_count" type="Integer" default="1" range="1-3"/>
+                    <Parameter name="enable_logging" type="Boolean" default="false"/>
+                    <Parameter name="sleep_mode" type="Boolean" default="true"/>
+                </Parameters>
+            </Template>
+        </ConfigurationTemplates>
+        
+        <DeviceCommands>
+            <Command name="get_status" description="Get device status">
+                <Parameters>
+                    <Parameter name="include_diagnostics" type="Boolean" default="false"/>
+                </Parameters>
+                <ReturnType>DeviceStatus</ReturnType>
+            </Command>
+            
+            <Command name="get_configuration" description="Get current device configuration">
+                <Parameters/>
+                <ReturnType>DeviceConfiguration</ReturnType>
+            </Command>
+            
+            <Command name="set_configuration" description="Set device configuration">
+                <Parameters>
+                    <Parameter name="configuration" type="Object" mandatory="true"/>
+                </Parameters>
+                <ReturnType>Boolean</ReturnType>
+            </Command>
+            
+            <Command name="reset" description="Reset device to factory defaults">
+                <Parameters>
+                    <Parameter name="confirm" type="Boolean" mandatory="true"/>
+                </Parameters>
+                <ReturnType>Boolean</ReturnType>
+            </Command>
+            
+            <Command name="restart" description="Restart device">
+                <Parameters>
+                    <Parameter name="delay" type="Integer" units="seconds" default="0" range="0-300"/>
+                </Parameters>
+                <ReturnType>Boolean</ReturnType>
+            </Command>
+            
+            <Command name="run_diagnostic" description="Run device diagnostic test">
+                <Parameters>
+                    <Parameter name="test_type" type="String" default="basic" values="basic,extended,full"/>
+                </Parameters>
+                <ReturnType>DiagnosticResult</ReturnType>
+            </Command>
+        </DeviceCommands>
+        
+        <DeviceFunctions>
+            <Function name="DeviceManagement" description="Basic device management functions">
+                <Capabilities>
+                    <Capability name="StatusMonitoring" description="Monitor device status"/>
+                    <Capability name="ConfigurationManagement" description="Manage device configuration"/>
+                    <Capability name="Diagnostics" description="Run diagnostic tests"/>
+                </Capabilities>
+            </Function>
+            
+            <Function name="DataAcquisition" description="Data acquisition functions">
+                <Capabilities>
+                    <Capability name="RealTimeData" description="Real-time data acquisition"/>
+                    <Capability name="HistoricalData" description="Historical data retrieval"/>
+                    <Capability name="EventLogging" description="Event logging and retrieval"/>
+                </Capabilities>
+            </Function>
+            
+            <Function name="Communication" description="Communication management">
+                <Capabilities>
+                    <Capability name="ProtocolSupport" description="Multiple protocol support"/>
+                    <Capability name="NetworkManagement" description="Network configuration"/>
+                    <Capability name="Security" description="Security and authentication"/>
+                </Capabilities>
+            </Function>
+        </DeviceFunctions>
+        
+        <DiagnosticTests>
+            <Test name="CommunicationTest" description="Test device communication">
+                <Parameters>
+                    <Parameter name="timeout" type="Float" units="seconds" default="10.0"/>
+                </Parameters>
+                <ExpectedResult>Communication established</ExpectedResult>
+            </Test>
+            
+            <Test name="ConfigurationTest" description="Test device configuration">
+                <Parameters>
+                    <Parameter name="validate_parameters" type="Boolean" default="true"/>
+                </Parameters>
+                <ExpectedResult>Configuration valid</ExpectedResult>
+            </Test>
+            
+            <Test name="PerformanceTest" description="Test device performance">
+                <Parameters>
+                    <Parameter name="duration" type="Integer" units="seconds" default="60"/>
+                    <Parameter name="load_level" type="Integer" units="%" default="50" range="10-100"/>
+                </Parameters>
+                <ExpectedResult>Performance within specifications</ExpectedResult>
+            </Test>
+        </DiagnosticTests>
+        
+        <Alarms>
+            <Alarm name="CommunicationLost" severity="High" description="Device communication lost">
+                <Conditions>
+                    <Condition name="timeout_exceeded" type="Timeout" value="30" units="seconds"/>
+                </Conditions>
+            </Alarm>
+            
+            <Alarm name="ConfigurationError" severity="Medium" description="Device configuration error">
+                <Conditions>
+                    <Condition name="invalid_parameter" type="Validation" value="true"/>
+                </Conditions>
+            </Alarm>
+            
+            <Alarm name="PerformanceDegraded" severity="Low" description="Device performance degraded">
+                <Conditions>
+                    <Condition name="response_time" type="Threshold" value="5.0" units="seconds" operator="greater_than"/>
+                </Conditions>
+            </Alarm>
+        </Alarms>
+    </DeviceCapabilities>
+    
+    <Security>
+        <SecurityLevels>
+            <Level name="Standard" description="Standard security level">
+                <Authentication>Username/Password</Authentication>
+                <Encryption>None</Encryption>
+                <AccessControl>Basic</AccessControl>
+            </Level>
+            
+            <Level name="Enhanced" description="Enhanced security level">
+                <Authentication>Certificate-based</Authentication>
+                <Encryption>TLS 1.2</Encryption>
+                <AccessControl>Role-based</AccessControl>
+            </Level>
+            
+            <Level name="Critical" description="Critical security level">
+                <Authentication>Multi-factor</Authentication>
+                <Encryption>TLS 1.3</Encryption>
+                <AccessControl>Advanced</AccessControl>
+            </Level>
+        </SecurityLevels>
+    </Security>
+    
+    <Documentation>
+        <Manual name="UserManual" language="en" version="1.0" url="docs/user_manual.pdf"/>
+        <Manual name="InstallationGuide" language="en" version="1.0" url="docs/installation_guide.pdf"/>
+        <Manual name="ConfigurationGuide" language="en" version="1.0" url="docs/configuration_guide.pdf"/>
+        <Manual name="TroubleshootingGuide" language="en" version="1.0" url="docs/troubleshooting_guide.pdf"/>
+    </Documentation>
+</DevicePackage> 

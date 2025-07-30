@@ -1,205 +1,144 @@
 #!/usr/bin/env python3
 """
-Smart Breaker Device Simulator
-Implements FDI-compliant smart breaker with LwM2M + Sparkplug B dual-path communication
-
-Features:
-- Realistic electrical measurements and protection functions
-- FDI-compliant device description and configuration
-- High-throughput dual-path communication
-- Advanced protection algorithms (overcurrent, ground fault, arc fault)
-- Predictive maintenance and condition monitoring
+Smart Breaker Device Simulator - MINIMAL VERSION FOR DEBUGGING
 """
 
-import asyncio
-import json
-import logging
-import os
-import ssl
-import time
-import threading
-import uuid
-import random
-import math
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
-from queue import Queue
-from typing import Dict, Any, Tuple, Optional
-from datetime import datetime, timedelta
-import numpy as np
-
 import paho.mqtt.client as mqtt
-import structlog
-from faker import Faker
+import time
 
-# Import protobuf
-try:
-    from proto.sparkplug_b_pb2 import Payload, Metric, DataType
-except ImportError:
-    print("Protobuf bindings not found. Run: protoc --python_out=. proto/sparkplug_b.proto")
-    exit(1)
+# COMMENTED OUT: All the complex imports and setup
+# import sys
+# import os
+# sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# import asyncio
+# import json
+# import logging
+# import ssl
+# import threading
+# import uuid
+# import random
+# import math
+# from concurrent.futures import ThreadPoolExecutor
+# from dataclasses import dataclass
+# from queue import Queue
+# from typing import Dict, Any, Tuple, Optional
+# from datetime import datetime, timedelta
+# import numpy as np
+# import structlog
+# from faker import Faker
 
-# Configure structured logging
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer()
-    ],
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    wrapper_class=structlog.stdlib.BoundLogger,
-    cache_logger_on_first_use=True,
-)
+# COMMENTED OUT: Protobuf import
+# try:
+#     from simulators.proto.sparkplug_b_pb2 import Payload, Metric, DataType
+# except ImportError:
+#     print("Protobuf bindings not found. Run: protoc --python_out=. proto/sparkplug_b.proto")
+#     exit(1)
 
-logger = structlog.get_logger()
+# COMMENTED OUT: Structured logging setup
+# structlog.configure(...)
+# logger = structlog.get_logger()
 
-@dataclass
+# COMMENTED OUT: Complex BreakerConfig class
+# @dataclass
+# class BreakerConfig:
+#     """Smart breaker configuration parameters"""
+#     device_id: str
+#     rated_current: float = 100.0  # Amperes
+#     rated_voltage: float = 480.0  # Volts
+#     rated_frequency: float = 60.0  # Hz
+#     breaking_capacity: float = 25.0  # kA
+#     pole_count: int = 3
+#     mounting_type: str = "PanelMount"
+#     protection_class: str = "TypeB"
+#     
+#     # Protection settings
+#     overcurrent_pickup: float = 100.0  # A
+#     overcurrent_delay: float = 1000.0  # ms
+#     ground_fault_pickup: float = 5.0  # A
+#     ground_fault_delay: float = 500.0  # ms
+#     arc_fault_pickup: float = 50.0  # A
+#     arc_fault_delay: float = 100.0  # ms
+#     thermal_pickup: float = 120.0  # A
+#     thermal_delay: float = 300.0  # s
+#     
+#     # MQTT settings
+#     mqtt_broker_host: str = "localhost"
+#     mqtt_broker_port: int = 1883
+#     mqtt_username: str = ""
+#     mqtt_password: str = ""
+#     mqtt_use_tls: bool = False
+#     
+#     # LWM2M settings
+#     lwm2m_server_host: str = "lwm2m-server"
+#     lwm2m_server_port: int = 8080
+#     
+#     # Sparkplug settings
+#     group_id: str = "IIoT"
+#     sparkplug_namespace: str = "spBv1.0"
+#     
+#     # Timing settings
+#     telemetry_interval: float = 1.0
+#     lwm2m_interval: float = 0.005
+
+# MINIMAL CONFIG FOR TESTING
 class BreakerConfig:
-    """Smart breaker configuration parameters"""
-    device_id: str
-    rated_current: float = 100.0  # Amperes
-    rated_voltage: float = 480.0  # Volts
-    rated_frequency: float = 60.0  # Hz
-    breaking_capacity: float = 25.0  # kA
-    pole_count: int = 3
-    mounting_type: str = "PanelMount"
-    protection_class: str = "TypeB"
-    
-    # Protection settings
-    overcurrent_pickup: float = 100.0  # A
-    overcurrent_delay: float = 1000.0  # ms
-    ground_fault_pickup: float = 5.0  # A
-    ground_fault_delay: float = 500.0  # ms
-    arc_fault_pickup: float = 50.0  # A
-    arc_fault_delay: float = 100.0  # ms
-    thermal_pickup: float = 120.0  # A
-    thermal_delay: float = 300.0  # s
-    
-    # Communication settings
-    mqtt_broker_host: str = "mosquitto"
-    mqtt_broker_port: int = 8883
-    mqtt_username: str = "device"
-    mqtt_password: str = "testpass123"
-    mqtt_use_tls: bool = True
-    lwm2m_server_host: str = "lwm2m-server"
-    lwm2m_server_port: int = 8080
-    group_id: str = "IIoT"
-    sparkplug_namespace: str = "spBv1.0"
-    telemetry_interval: float = 0.001  # 1000 msg/sec
-    lwm2m_interval: float = 0.005  # 200 msg/sec
+    def __init__(self):
+        self.device_id = "smart-breaker-000"
+        self.mqtt_broker_host = "localhost"
+        self.mqtt_broker_port = 1883
 
-class BreakerState:
-    """Smart breaker operational state"""
-    def __init__(self, config: BreakerConfig):
-        self.config = config
-        self.status = 1  # 0=Open, 1=Closed, 2=Tripped, 3=Fault
-        self.position = 1  # 0=Disconnected, 1=Connected, 2=Test
-        self.trip_count = 0
-        self.last_trip_time = None
-        self.trip_reason = ""
-        self.trip_current = 0.0
-        self.trip_delay = 0.0
-        self.operating_hours = 0
-        self.maintenance_due = False
-        self.communication_status = 1  # 0=Offline, 1=Online, 2=Degraded, 3=Fault
-        
-        # Electrical measurements
-        self.current_phase_a = 0.0
-        self.current_phase_b = 0.0
-        self.current_phase_c = 0.0
-        self.voltage_phase_a = config.rated_voltage
-        self.voltage_phase_b = config.rated_voltage
-        self.voltage_phase_c = config.rated_voltage
-        self.power_factor = 0.95
-        self.frequency = config.rated_frequency
-        self.temperature = 25.0
-        
-        # Calculated values
-        self.active_power = 0.0
-        self.reactive_power = 0.0
-        self.apparent_power = 0.0
-        self.load_percentage = 0.0
-        self.harmonic_distortion = 2.5
-        
-        # Protection monitoring
-        self.ground_fault_current = 0.0
-        self.arc_fault_detected = False
-        self.alarm_status = 0
-        
-        # Control settings
-        self.remote_control_enabled = False
-        self.auto_reclose_enabled = False
-        self.auto_reclose_attempts = 0
-        self.max_auto_reclose_attempts = 1
-        
-        # Timing
-        self.start_time = time.time()
-        self.last_protection_check = time.time()
-        self.last_maintenance_check = time.time()
+# COMMENTED OUT: Complex BreakerState class
+# class BreakerState:
+#     """Smart breaker operational state"""
+#     def __init__(self, config: BreakerConfig):
+#         # ... all the complex state variables commented out
+#         pass
 
 class SmartBreakerSimulator:
-    """High-performance smart breaker simulator with FDI compliance"""
+    """MINIMAL smart breaker simulator - MQTT connection only"""
 
     def __init__(self, config: BreakerConfig):
+        print("DEBUG: SmartBreakerSimulator constructor called", flush=True)
         self.config = config
-        self.logger = logger.bind(device_id=config.device_id)
-        self.fake = Faker()
+        # self.logger = logger.bind(device_id=config.device_id)  # COMMENTED OUT
+        # self.fake = Faker()  # COMMENTED OUT
         
         # Breaker state
-        self.breaker_state = BreakerState(config)
+        # self.breaker_state = BreakerState(config)  # COMMENTED OUT
         
         # Threading control
         self.running = True
         self.mqtt_connected = False
         
-        # MQTT client optimized for high throughput
-        import uuid
-        self.mqtt_client = mqtt.Client(
-            client_id=f"{config.device_id}-{uuid.uuid4().hex[:8]}",
-            protocol=mqtt.MQTTv311,
-            clean_session=True
-        )
+        # MQTT client - simple version like the working test
+        self.mqtt_client = mqtt.Client()
         
         # Protocol state
-        self.sparkplug_seq = 0
-        self.lwm2m_registered = False
-        self.start_time = time.time()
+        # self.sparkplug_seq = 0  # COMMENTED OUT
+        # self.lwm2m_registered = False  # COMMENTED OUT
+        # self.start_time = time.time()  # COMMENTED OUT
         
         # Performance optimization: pre-generated payload templates
-        self.sparkplug_birth_payload = None
-        self.lwm2m_registration_data = None
+        # self.sparkplug_birth_payload = None  # COMMENTED OUT
+        # self.lwm2m_registration_data = None  # COMMENTED OUT
         
         # Message queues for high throughput
-        self.telemetry_queue = Queue(maxsize=1000)
-        self.command_queue = Queue(maxsize=100)
+        # self.telemetry_queue = Queue(maxsize=1000)  # COMMENTED OUT
+        # self.command_queue = Queue(maxsize=100)  # COMMENTED OUT
         
         # Thread pool for message processing
-        self.executor = ThreadPoolExecutor(max_workers=4)
+        # self.executor = ThreadPoolExecutor(max_workers=4)  # COMMENTED OUT
         
+        print("DEBUG: About to call setup_mqtt_client", flush=True)
         self.setup_mqtt_client()
-        self.pre_generate_payloads()
-        self.start_worker_threads()
+        # print("DEBUG: About to call pre_generate_payloads", flush=True)  # COMMENTED OUT
+        # self.pre_generate_payloads()  # COMMENTED OUT
+        # print("DEBUG: About to call start_worker_threads", flush=True)  # COMMENTED OUT
+        # self.start_worker_threads()  # COMMENTED OUT
+        print("DEBUG: Constructor completed", flush=True)
 
     def setup_mqtt_client(self):
-        """Setup MQTT client with TLS and authentication"""
-        # Authentication (only if username is provided)
-        if self.config.mqtt_username and self.config.mqtt_username.strip():
-            self.mqtt_client.username_pw_set(self.config.mqtt_username, self.config.mqtt_password)
-        
-        # TLS setup
-        if self.config.mqtt_use_tls:
-            context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-            context.check_hostname = False
-            context.verify_mode = ssl.CERT_NONE
-            self.mqtt_client.tls_set_context(context)
-        
+        """Setup MQTT client - MINIMAL VERSION"""
         # Callbacks
         self.mqtt_client.on_connect = self._on_mqtt_connect
         self.mqtt_client.on_message = self._on_mqtt_message
@@ -207,193 +146,204 @@ class SmartBreakerSimulator:
         
         # Connect to broker
         try:
+            time.sleep(0.1)  # Small delay to ensure client is ready
             self.mqtt_client.connect(self.config.mqtt_broker_host, self.config.mqtt_broker_port, 60)
             self.mqtt_client.loop_start()
-            self.logger.info("Connected to MQTT broker", host=self.config.mqtt_broker_host, port=self.config.mqtt_broker_port)
+            print(f"Connected to MQTT broker at {self.config.mqtt_broker_host}:{self.config.mqtt_broker_port}")
         except Exception as e:
-            self.logger.error("Failed to connect to MQTT broker", error=str(e))
+            print(f"Failed to connect to MQTT broker: {e}")
 
     def _on_mqtt_connect(self, client, userdata, flags, rc):
-        """MQTT connection callback"""
+        """MQTT connection callback - MINIMAL VERSION"""
         if rc == 0:
             self.mqtt_connected = True
-            self.logger.info("MQTT connected successfully")
+            print("MQTT connected successfully!")
             
-            # Subscribe to topics
+            # Subscribe to topics (simplified)
             topics = [
-                f"lwm2m/{self.config.device_id}/cmd/#",
-                f"spBv1.0/{self.config.group_id}/DCMD/{self.config.device_id}",
-                f"spBv1.0/{self.config.group_id}/DDATA/+"
+                f"test/{self.config.device_id}/cmd/#",
             ]
             
             for topic in topics:
                 client.subscribe(topic)
-                self.logger.info("Subscribed to topic", topic=topic)
-            
-            # Send birth certificate
-            self._send_sparkplug_birth()
+                print(f"Subscribed to topic: {topic}")
             
         else:
-            self.logger.error("MQTT connection failed", rc=rc)
+            print(f"MQTT connection failed with rc={rc}")
 
     def _on_mqtt_disconnect(self, client, userdata, rc):
-        """MQTT disconnection callback"""
+        """MQTT disconnection callback - MINIMAL VERSION"""
         self.mqtt_connected = False
-        self.logger.warning("MQTT disconnected", rc=rc)
-
+        print(f"MQTT disconnected with rc={rc}")
     def _on_mqtt_message(self, client, userdata, msg):
-        """MQTT message callback"""
-        # Process messages in background thread
-        self.executor.submit(self._process_command_message, msg.topic, msg.payload)
+        """MQTT message callback - MINIMAL VERSION"""
+        print(f"Received message: {msg.topic} {msg.payload}")
+        # self.executor.submit(self._process_command_message, msg.topic, msg.payload)  # COMMENTED OUT
 
-    def pre_generate_payloads(self):
-        """Pre-generate common payloads to avoid runtime serialization overhead"""
-        # Pre-generate Sparkplug B birth certificate
-        self.sparkplug_birth_payload = self._create_sparkplug_birth_payload()
-        
-        # Pre-generate LwM2M registration data
-        self.lwm2m_registration_data = {
-            "endpoint": self.config.device_id,
-            "lifetime": 3600,
-            "version": "1.2",
-            "bindingMode": "UQ",
-            "objects": {
-                "3": {
-                    "0": {
-                        "0": "Smart",
-                        "1": f"XSeries-SmartBreaker-{self.config.protection_class}",
-                        "2": self.config.device_id,
-                        "3": "2.1.0"
-                    }
-                },
-                "4": {
-                    "0": {
-                        "0": 1,
-                        "1": 100,
-                        "2": 100,
-                        "4": "192.168.1.100"
-                    }
-                },
-                "3200": {
-                    "0": {
-                        "0": self.breaker_state.status,
-                        "1": self.breaker_state.current_phase_a,
-                        "2": self.breaker_state.current_phase_b,
-                        "3": self.breaker_state.current_phase_c,
-                        "4": self.breaker_state.voltage_phase_a,
-                        "5": self.breaker_state.voltage_phase_b,
-                        "6": self.breaker_state.voltage_phase_c,
-                        "7": self.breaker_state.power_factor,
-                        "8": self.breaker_state.active_power,
-                        "9": self.breaker_state.reactive_power,
-                        "10": self.breaker_state.apparent_power,
-                        "11": self.breaker_state.frequency,
-                        "12": self.breaker_state.temperature,
-                        "13": self.breaker_state.trip_count,
-                        "14": self.breaker_state.last_trip_time or "",
-                        "15": self.breaker_state.trip_reason,
-                        "16": self.breaker_state.trip_current,
-                        "17": self.breaker_state.trip_delay,
-                        "18": self.breaker_state.ground_fault_current,
-                        "19": self.breaker_state.arc_fault_detected,
-                        "20": self.breaker_state.maintenance_due,
-                        "21": self.breaker_state.operating_hours,
-                        "22": self.breaker_state.load_percentage,
-                        "23": self.breaker_state.harmonic_distortion,
-                        "24": self.breaker_state.position,
-                        "25": self.breaker_state.remote_control_enabled,
-                        "26": self.breaker_state.auto_reclose_enabled,
-                        "27": self.breaker_state.auto_reclose_attempts,
-                        "29": self.breaker_state.alarm_status,
-                        "30": self.breaker_state.communication_status
-                    }
-                },
-                "3201": {
-                    "0": {
-                        "0": self.config.overcurrent_pickup,
-                        "1": self.config.overcurrent_delay,
-                        "2": self.config.ground_fault_pickup,
-                        "3": self.config.ground_fault_delay,
-                        "4": self.config.arc_fault_pickup,
-                        "5": self.config.arc_fault_delay,
-                        "6": self.config.thermal_pickup,
-                        "7": self.config.thermal_delay,
-                        "8": self.config.overcurrent_pickup * 8,  # Instantaneous pickup
-                        "9": 5.0,  # Auto-reclose delay
-                        "10": True  # Protection enabled
-                    }
-                }
-            }
-        }
+    # COMMENTED OUT: Complex pre_generate_payloads method
+    # def pre_generate_payloads(self):
+    #     """Pre-generate common payloads to avoid runtime serialization overhead"""
+    #     # Pre-generate Sparkplug B birth certificate
+    #     self.sparkplug_birth_payload = self._create_sparkplug_birth_payload()
+    #     
+    #     # Pre-generate LwM2M registration data
+    #     self.lwm2m_registration_data = {
+    #         "endpoint": self.config.device_id,
+    #         "lifetime": 3600,
+    #         "version": "1.2",
+    #         "bindingMode": "UQ",
+    #         "objects": {
+    #             "3": {
+    #                 "0": {
+    #                     "0": "Smart",
+    #                     "1": f"XSeries-SmartBreaker-{self.config.protection_class}",
+    #                     "2": self.config.device_id,
+    #                     "3": "2.1.0"
+    #                 }
+    #             },
+    #             "4": {
+    #                 "0": {
+    #                     "0": 1,
+    #                     "1": 100,
+    #                     "2": 100,
+    #                     "4": "192.168.1.100"
+    #                 }
+    #             },
+    #             "3200": {
+    #                 "0": {
+    #                     "0": self.breaker_state.status,
+    #                     "1": self.breaker_state.current_phase_a,
+    #                     "2": self.breaker_state.current_phase_b,
+    #                     "3": self.breaker_state.current_phase_c,
+    #                     "4": self.breaker_state.voltage_phase_a,
+    #                     "5": self.breaker_state.voltage_phase_b,
+    #                     "6": self.breaker_state.voltage_phase_c,
+    #                     "7": self.breaker_state.power_factor,
+    #                     "8": self.breaker_state.active_power,
+    #                     "9": self.breaker_state.reactive_power,
+    #                     "10": self.breaker_state.apparent_power,
+    #                     "11": self.breaker_state.frequency,
+    #                     "12": self.breaker_state.temperature,
+    #                     "13": self.breaker_state.trip_count,
+    #                     "14": self.breaker_state.last_trip_time or "",
+    #                     "15": self.breaker_state.trip_reason,
+    #                     "16": self.breaker_state.trip_current,
+    #                     "17": self.breaker_state.trip_delay,
+    #                     "18": self.breaker_state.ground_fault_current,
+    #                     "19": self.breaker_state.arc_fault_detected,
+    #                     "20": self.breaker_state.maintenance_due,
+    #                     "21": self.breaker_state.operating_hours,
+    #                     "22": self.breaker_state.load_percentage,
+    #                     "23": self.breaker_state.harmonic_distortion,
+    #                     "24": self.breaker_state.position,
+    #                     "25": self.breaker_state.remote_control_enabled,
+    #                     "26": self.breaker_state.auto_reclose_enabled,
+    #                     "27": self.breaker_state.auto_reclose_attempts,
+    #                     "29": self.breaker_state.alarm_status,
+    #                     "30": self.breaker_state.communication_status
+    #                 }
+    #             },
+    #             "3201": {
+    #                 "0": {
+    #                     "0": self.config.overcurrent_pickup,
+    #                     "1": self.config.overcurrent_delay,
+    #                     "2": self.config.ground_fault_pickup,
+    #                     "3": self.config.ground_fault_delay,
+    #                     "4": self.config.arc_fault_pickup,
+    #                     "5": self.config.arc_fault_delay,
+    #                     "6": self.config.thermal_pickup,
+    #                     "7": self.config.thermal_delay,
+    #                     "8": self.config.overcurrent_pickup * 8,  # Instantaneous pickup
+    #                     "9": 5.0,  # Auto-reclose delay
+    #                     "10": True  # Protection enabled
+    #                 }
+    #             }
+    #         }
+    #     }
 
-    def start_worker_threads(self):
-        """Start background worker threads"""
-        # Telemetry thread
-        threading.Thread(target=self._telemetry_worker, daemon=True).start()
-        
-        # LwM2M thread
-        threading.Thread(target=self._lwm2m_worker, daemon=True).start()
-        
-        # Protection monitoring thread
-        threading.Thread(target=self._protection_monitor, daemon=True).start()
-        
-        # Maintenance monitoring thread
-        threading.Thread(target=self._maintenance_monitor, daemon=True).start()
+    # COMMENTED OUT: Complex start_worker_threads method
+    # def start_worker_threads(self):
+    #     """Start background worker threads"""
+    #     print("DEBUG: start_worker_threads called", flush=True)
+    #     # Telemetry thread
+    #     print("DEBUG: Starting telemetry thread", flush=True)
+    #     threading.Thread(target=self._telemetry_worker, daemon=True).start()
+    #     
+    #     # LwM2M thread
+    #     print("DEBUG: Starting LwM2M thread", flush=True)
+    #     threading.Thread(target=self._lwm2m_worker, daemon=True).start()
+    #     
+    #     # Protection monitoring thread
+    #     print("DEBUG: Starting protection monitor thread", flush=True)
+    #     threading.Thread(target=self._protection_monitor, daemon=True).start()
+    #     
+    #     # Maintenance monitoring thread
+    #     print("DEBUG: Starting maintenance monitor thread", flush=True)
+    #     threading.Thread(target=self._maintenance_monitor, daemon=True).start()
+    #     print("DEBUG: All worker threads started", flush=True)
 
-    def _telemetry_worker(self):
-        """High-throughput telemetry worker thread"""
-        while self.running:
-            try:
-                # Generate realistic electrical measurements
-                self._update_electrical_measurements()
-                
-                # Send Sparkplug B telemetry
-                if self.mqtt_connected:
-                    self._send_sparkplug_telemetry()
-                
-                time.sleep(self.config.telemetry_interval)
-                
-            except Exception as e:
-                self.logger.error("Error in telemetry worker", error=str(e))
-                time.sleep(1)
+    # COMMENTED OUT: Complex _telemetry_worker method
+    # def _telemetry_worker(self):
+    #     """High-throughput telemetry worker thread"""
+    #     print("DEBUG: Telemetry worker started", flush=True)
+    #     while self.running:
+    #         try:
+    #             print("DEBUG: Telemetry worker loop iteration", flush=True)
+    #             # Generate realistic electrical measurements
+    #             self._update_electrical_measurements()
+    #             
+    #             # Send Sparkplug B telemetry
+    #             if self.mqtt_connected:
+    #                 print("DEBUG: MQTT connected, sending telemetry", flush=True)
+    #                 self._send_sparkplug_telemetry()
+    #             else:
+    #                 print("DEBUG: MQTT not connected", flush=True)
+    #             
+    #             time.sleep(self.config.telemetry_interval)
+    #             
+    #         except Exception as e:
+    #             print(f"DEBUG: Error in telemetry worker: {str(e)}", flush=True)
+    #             self.logger.error("Error in telemetry worker", error=str(e))
+    #             time.sleep(1)
 
-    def _lwm2m_worker(self):
-        """LwM2M device management worker thread"""
-        while self.running:
-            try:
-                if self.mqtt_connected:
-                    if not self.lwm2m_registered:
-                        self._send_lwm2m_registration()
-                    else:
-                        self._send_lwm2m_update()
-                
-                time.sleep(self.config.lwm2m_interval)
-                
-            except Exception as e:
-                self.logger.error("Error in LwM2M worker", error=str(e))
-                time.sleep(1)
+    # COMMENTED OUT: Complex worker methods
+    # def _lwm2m_worker(self):
+    #     """LwM2M device management worker thread"""
+    #     while self.running:
+    #         try:
+    #             if self.mqtt_connected:
+    #                 if not self.lwm2m_registered:
+    #                     self._send_lwm2m_registration()
+    #                 else:
+    #                     self._send_lwm2m_update()
+    #             
+    #             time.sleep(self.config.lwm2m_interval)
+    #             
+    #         except Exception as e:
+    #             self.logger.error("Error in LwM2M worker", error=str(e))
+    #             time.sleep(1)
 
-    def _protection_monitor(self):
-        """Protection algorithm monitoring thread"""
-        while self.running:
-            try:
-                self._check_protection_functions()
-                time.sleep(0.1)  # 10 Hz protection monitoring
-                
-            except Exception as e:
-                self.logger.error("Error in protection monitor", error=str(e))
-                time.sleep(1)
+    # def _protection_monitor(self):
+    #     """Protection algorithm monitoring thread"""
+    #     while self.running:
+    #         try:
+    #             self._check_protection_functions()
+    #             time.sleep(0.1)  # 10 Hz protection monitoring
+    #             
+    #         except Exception as e:
+    #             self.logger.error("Error in protection monitor", error=str(e))
+    #             time.sleep(1)
 
-    def _maintenance_monitor(self):
-        """Predictive maintenance monitoring thread"""
-        while self.running:
-            try:
-                self._check_maintenance_conditions()
-                time.sleep(60)  # Check every minute
-                
-            except Exception as e:
-                self.logger.error("Error in maintenance monitor", error=str(e))
-                time.sleep(60)
+    # def _maintenance_monitor(self):
+    #     """Predictive maintenance monitoring thread"""
+    #     while self.running:
+    #         try:
+    #             self._check_maintenance_conditions()
+    #             time.sleep(60)  # Check every minute
+    #             
+    #         except Exception as e:
+    #             self.logger.error("Error in maintenance monitor", error=str(e))
+    #             time.sleep(60)
 
     def _update_electrical_measurements(self):
         """Update realistic electrical measurements"""
@@ -533,13 +483,23 @@ class SmartBreakerSimulator:
 
     def _send_sparkplug_telemetry(self):
         """Send Sparkplug B telemetry data"""
+        print("DEBUG: _send_sparkplug_telemetry called")
         payload = Payload()
         payload.timestamp = int(time.time() * 1000)
         payload.seq = self.sparkplug_seq
         payload.uuid = str(uuid.uuid4())
         
-        # Add breaker metrics
+        # Add all 47 FDI capabilities with mock data
         metrics_data = [
+            # Device information
+            ("Device/Type", 13, "SmartCircuitBreaker"),  # STRING = 13
+            ("Device/Manufacturer", 13, "Smart"),
+            ("Device/Model", 13, "XSeries-SmartBreaker"),
+            ("Device/SerialNumber", 13, "ETN-XSB-001"),
+            ("Device/FirmwareVersion", 13, "2.1.0"),
+            ("Device/Online", 11, True),  # BOOLEAN = 11
+            
+            # Breaker status and measurements
             ("Breaker/Status", 10, self.breaker_state.status),  # INT32 = 10
             ("Breaker/CurrentPhaseA", 12, self.breaker_state.current_phase_a),  # FLOAT = 12
             ("Breaker/CurrentPhaseB", 12, self.breaker_state.current_phase_b),
@@ -554,6 +514,14 @@ class SmartBreakerSimulator:
             ("Breaker/Frequency", 12, self.breaker_state.frequency),
             ("Breaker/Temperature", 12, self.breaker_state.temperature),
             ("Breaker/TripCount", 10, self.breaker_state.trip_count),
+            ("Breaker/LastTripTime", 13, self.breaker_state.last_trip_time or ""),
+            ("Breaker/TripReason", 13, self.breaker_state.trip_reason),
+            ("Breaker/TripCurrent", 12, self.breaker_state.trip_current),
+            ("Breaker/TripDelay", 12, self.breaker_state.trip_delay),
+            ("Breaker/GroundFaultCurrent", 12, self.breaker_state.ground_fault_current),
+            ("Breaker/ArcFaultDetected", 11, self.breaker_state.arc_fault_detected),
+            ("Breaker/MaintenanceDue", 11, self.breaker_state.maintenance_due),
+            ("Breaker/OperatingHours", 10, self.breaker_state.operating_hours),
             ("Breaker/LoadPercentage", 12, self.breaker_state.load_percentage),
             ("Breaker/HarmonicDistortion", 12, self.breaker_state.harmonic_distortion),
             ("Breaker/Position", 10, self.breaker_state.position),
@@ -562,12 +530,22 @@ class SmartBreakerSimulator:
             ("Breaker/AutoRecloseAttempts", 10, self.breaker_state.auto_reclose_attempts),
             ("Breaker/AlarmStatus", 10, self.breaker_state.alarm_status),
             ("Breaker/CommunicationStatus", 10, self.breaker_state.communication_status),
+            
+            # Protection settings
             ("Protection/OvercurrentPickup", 12, self.config.overcurrent_pickup),
+            ("Protection/OvercurrentDelay", 12, self.config.overcurrent_delay),
             ("Protection/GroundFaultPickup", 12, self.config.ground_fault_pickup),
+            ("Protection/GroundFaultDelay", 12, self.config.ground_fault_delay),
             ("Protection/ArcFaultPickup", 12, self.config.arc_fault_pickup),
+            ("Protection/ArcFaultDelay", 12, self.config.arc_fault_delay),
+            ("Protection/ThermalPickup", 12, self.config.thermal_pickup),
+            ("Protection/ThermalDelay", 12, self.config.thermal_delay),
+            ("Protection/InstantaneousPickup", 12, self.config.overcurrent_pickup * 10),  # 10x overcurrent
+            ("Protection/AutoRecloseDelay", 12, 5000.0),  # 5 seconds
             ("Protection/Enabled", 11, True)
         ]
         
+        print(f"DEBUG: Adding {len(metrics_data)} metrics to payload")
         for name, datatype, value in metrics_data:
             metric = payload.metrics.add()
             metric.name = name
@@ -580,9 +558,13 @@ class SmartBreakerSimulator:
                 metric.boolean_value = bool(value)
             elif datatype == 12:  # FLOAT
                 metric.float_value = float(value)
+            elif datatype == 13:  # STRING
+                metric.string_value = str(value)
         
         topic = f"spBv1.0/{self.config.group_id}/DDATA/{self.config.device_id}"
+        print(f"DEBUG: Publishing to topic: {topic}")
         self.mqtt_client.publish(topic, payload.SerializeToString())
+        print("DEBUG: Telemetry published successfully")
         
         self.sparkplug_seq = (self.sparkplug_seq + 1) % 256
 
@@ -936,7 +918,7 @@ def create_breaker_config() -> BreakerConfig:
         arc_fault_delay=float(os.getenv("ARC_FAULT_DELAY", "100.0")),
         thermal_pickup=float(os.getenv("THERMAL_PICKUP", "120.0")),
         thermal_delay=float(os.getenv("THERMAL_DELAY", "300.0")),
-        mqtt_broker_host=os.getenv("MQTT_BROKER_HOST", "mosquitto"),
+                    mqtt_broker_host=os.getenv("MQTT_BROKER_HOST", "localhost"),
         mqtt_broker_port=int(os.getenv("MQTT_BROKER_PORT", "8883")),
         mqtt_username=os.getenv("MQTT_USERNAME", "device"),
         mqtt_password=os.getenv("MQTT_PASSWORD", "testpass123"),
@@ -945,34 +927,59 @@ def create_breaker_config() -> BreakerConfig:
         lwm2m_server_port=int(os.getenv("LWM2M_SERVER_PORT", "8080")),
         group_id=os.getenv("GROUP_ID", "IIoT"),
         sparkplug_namespace=os.getenv("SPARKPLUG_NAMESPACE", "spBv1.0"),
-        telemetry_interval=0.001,  # 1000 msg/sec
+        telemetry_interval=1.0,  # 1 msg/sec for debugging
         lwm2m_interval=0.005  # 200 msg/sec
     )
 
+def create_breaker_config() -> BreakerConfig:
+    """Create minimal breaker configuration"""
+    return BreakerConfig()
+
 def main():
+    """Main function - MINIMAL VERSION"""
+    print("Starting minimal smart breaker simulator...")
+    
+    # Create config
+    config = create_breaker_config()
+    
+    # Create simulator
+    simulator = SmartBreakerSimulator(config)
+    
+    # Wait for connection
+    time.sleep(5)
+    
+    if simulator.mqtt_connected:
+        print("Success! MQTT is connected.")
+        # Publish a test message
+        simulator.mqtt_client.publish("test/breaker", "Hello from minimal breaker")
+        print("Test message published")
+    else:
+        print("Failed to connect to MQTT")
+    
+    # Keep running for a bit
+    time.sleep(10)
+    
+    # Cleanup
+    simulator.mqtt_client.loop_stop()
+    simulator.mqtt_client.disconnect()
+    print("Test completed")
+
+if __name__ == "__main__":
+    main() 
     """Main function"""
-    try:
-        config = create_breaker_config()
-        simulator = SmartBreakerSimulator(config)
+    #try:
+        #config = create_breaker_config()
+        #simulator = SmartBreakerSimulator(config)
         
-        logger.info("Smart breaker simulator started", 
-                   device_id=config.device_id,
-                   rated_current=config.rated_current,
-                   rated_voltage=config.rated_voltage,
-                   protection_class=config.protection_class)
+        #logger.info("Smart breaker simulator started", 
+        #           device_id=config.device_id,
+        #           rated_current=config.rated_current,
+        #           rated_voltage=config.rated_voltage,
+        #           protection_class=config.protection_class)
         
         # Keep running
-        while True:
+    while True:
             time.sleep(1)
             
-    except KeyboardInterrupt:
-        logger.info("Received interrupt signal")
-        if 'simulator' in locals():
-            simulator.stop()
-    except Exception as e:
-        logger.error("Fatal error", error=str(e))
-        if 'simulator' in locals():
-            simulator.stop()
-
 if __name__ == "__main__":
     main() 
