@@ -36,6 +36,14 @@ open http://localhost:8080
 
 This implementation provides a complete FDI (Field Device Integration) stack that enables standardized device integration, configuration, and management in industrial IoT environments. The solution demonstrates how FDI standards can be deployed on devices and gateways to provide infrastructure supporting the FDI standard.
 
+**Key Features:**
+- ✅ **OPC UA Primary Interface** - Standard protocol for configurators/operators
+- ✅ **Pluggable Architecture** - Ready for additional protocols (HTTP/REST, HART, etc.)
+- ✅ **FDI Compliance** - Full FDI package parsing and capability exposure
+- ✅ **Real-time Monitoring** - Live device data and parameter tracking
+- ✅ **Dynamic Configuration** - FDI-driven configuration interface
+- ✅ **Device Simulation** - Smart breaker simulator with realistic behavior
+
 ## Architecture Diagram
 
 ```
@@ -152,11 +160,13 @@ This implementation provides a complete FDI (Field Device Integration) stack tha
 
 ## Architecture
 
+The system implements a **pluggable adapter architecture** that supports multiple device communication protocols. Currently, **OPC UA is the primary interface** for configurators and operators, with the architecture ready to support additional protocols as needed.
+
 ### Core Components
 
 #### 1. FDI Communication Server
 - **Purpose**: Central hub that processes device data and exposes FDI capabilities via OPC UA
-- **Protocols**: MQTT (device communication), OPC UA (client access)
+- **Protocols**: OPC UA (primary interface for configurators), MQTT (device communication)
 - **Responsibilities**:
   - Device discovery and registration
   - Real-time data processing from MQTT devices
@@ -187,8 +197,8 @@ This implementation provides a complete FDI (Field Device Integration) stack tha
 ### Separation of Concerns
 
 #### Protocol Layer
+- **OPC UA Server**: Primary interface for configurators and operators
 - **MQTT Adapter**: Handles device communication using Sparkplug B protocol
-- **OPC UA Server**: Exposes FDI capabilities to clients
 - **HTTP Interface**: Provides web-based user access
 
 #### Business Logic Layer

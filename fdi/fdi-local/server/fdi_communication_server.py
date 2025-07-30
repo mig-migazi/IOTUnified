@@ -39,6 +39,9 @@ except ImportError:
 # Structured logging
 import structlog
 
+# Import the OPCUAAdapter
+from opcua_adapter import OPCUAAdapter
+
 # Configure structlog like the device simulator
 structlog.configure(
     processors=[
@@ -501,15 +504,59 @@ class FDICommunicationServer:
     
     def __init__(self, 
                  opcua_host: str = "0.0.0.0", 
-                 opcua_port: int = 4840):
+                 opcua_port: int = 4840,
+                 config_file: str = "config/adapter_config.json"):
         self.opcua_host = opcua_host
         self.opcua_port = opcua_port
+        self.config_file = config_file
         self.adapters: Dict[str, DeviceProtocolAdapter] = {}
-        self.opcua_server = None
-        self.idx = None
+        
+        # Store discovered devices
+        self.devices: Dict[str, Device] = {}
         
         # FDI package registry
         self.fdi_packages = {}
+        
+        # Load configuration and create adapters
+        self._load_configuration()
+        
+        # Create OPC UA adapter if enabled
+        if self.config.get("opcua_adapter", {}).get("enabled", True):
+            self.opcua_adapter = OPCUAAdapter(opcua_host, opcua_port, self)
+            self.register_adapter("opcua", self.opcua_adapter)
+    
+    def _load_configuration(self):
+        """Load adapter configuration from JSON file"""
+        try:
+            import os
+            import json
+            
+            # Get the directory of the current file
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            config_path = os.path.join(current_dir, "..", self.config_file)
+            
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    self.config = json.load(f)
+                logger.info("Loaded adapter configuration", config_file=config_path)
+            else:
+                logger.warning("Configuration file not found, using defaults", config_file=config_path)
+                self.config = {
+                    "opcua_adapter": {
+                        "enabled": True,
+                        "host": "0.0.0.0",
+                        "port": 4840
+                    }
+                }
+            
+            # MQTT adapter creation removed - focusing on OPC UA only
+            
+        except Exception as e:
+            logger.error("Error loading configuration", error=str(e))
+            # Use default configuration
+            self.config = {"opcua_adapter": {"enabled": True}}
+    
+    # MQTT adapter creation method removed - focusing on OPC UA only
     
     def register_adapter(self, protocol: str, adapter: DeviceProtocolAdapter):
         """Register a protocol adapter"""
@@ -522,21 +569,12 @@ class FDICommunicationServer:
         
         # Start all protocol adapters
         for protocol, adapter in self.adapters.items():
-            adapter.start()  # Remove await since MQTTAdapter.start() is not async
+            if protocol == "opcua":
+                await adapter.start()  # OPCUAAdapter.start() is async
+            else:
+                adapter.start()  # MQTTAdapter.start() is not async
             logger.info("Started protocol adapter", protocol=protocol)
         
-        # Start OPC UA server
-        await self._start_opcua_server()
-        
-        # Start the OPC UA server
-        logger.info("About to start OPC UA server...")
-        try:
-            await self.opcua_server.start()
-            logger.info(f"OPC UA server started at opc.tcp://{self.opcua_host}:{self.opcua_port}")
-        except Exception as e:
-            logger.error(f"Failed to start OPC UA server: {e}")
-            raise
-
         # Keep server running
         logger.info("FDI Communication Server running...")
         while True:

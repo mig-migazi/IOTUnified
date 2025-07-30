@@ -1,0 +1,132 @@
+version: '3.8'
+
+services:
+  # Smart Breaker Device Simulator
+  smart-breaker-simulator:
+    build:
+      context: ../../../device-simulators
+      dockerfile: Dockerfile
+    container_name: smart-breaker-simulator
+    restart: unless-stopped
+    environment:
+      # Device Identity
+      - DEVICE_ID=smart-breaker-001
+      - DEVICE_TYPE=SmartBreaker
+      - DEVICE_MANUFACTURER=Smart
+      - DEVICE_MODEL=XSeries-SmartBreaker-TypeB
+      - DEVICE_SERIAL_NUMBER=SMART-XSB-001
+      - DEVICE_FIRMWARE_VERSION=2.1.0
+      
+      # Device Configuration
+      - TRIP_CURRENT=100.0
+      - NOMINAL_CURRENT=80.0
+      - TEMPERATURE_THRESHOLD=85.0
+      - VOLTAGE_THRESHOLD=480.0
+      - POWER_FACTOR=0.95
+      - FREQUENCY=60.0
+      
+      # Communication Settings
+      - MQTT_BROKER_HOST=localhost
+      - MQTT_BROKER_PORT=1883
+      - LWM2M_SERVER_HOST=localhost
+      - LWM2M_SERVER_PORT=8080
+      
+      # Simulation Settings
+      - SIMULATION_INTERVAL=5
+      - LOG_LEVEL=INFO
+      - ENABLE_MQTT=false
+      - ENABLE_LWM2M=false
+      - ENABLE_HTTP_API=true
+      - HTTP_API_PORT=8080
+      
+      # Device State
+      - DEVICE_STATUS=online
+      - CIRCUIT_STATUS=closed
+      - TRIP_STATUS=normal
+      - MAINTENANCE_MODE=false
+    volumes:
+      - ../../../fdi/device-profiles:/app/device-profiles:ro
+      - ../../../device-simulators/simulators/smart_breaker_simulator.py:/app/smart_breaker_simulator.py
+    command: ["python", "smart_breaker_simulator.py"]
+    networks:
+      - simulator-network
+    ports:
+      - "8080:8080"  # Device API port
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  # FDI Server for Smart Breaker
+  smart-breaker-fdi-server:
+    build:
+      context: ../../../fdi/fdi-device-driver
+      dockerfile: Dockerfile
+    container_name: smart-breaker-fdi-server
+    restart: unless-stopped
+    environment:
+      # FDI Server Configuration
+      - FDI_PACKAGE_PATH=/app/device-profiles/smart-breaker.fdi
+      - FDI_ADAPTER=local_api
+      - DEVICE_MODULE=smart_breaker_simulator
+      # Logging
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+    volumes:
+      - ../../../fdi/device-profiles:/app/device-profiles:ro
+      - ../../../fdi/fdi-device-driver:/app/fdi-driver:ro
+      - ../../../device-simulators:/app/device-simulators:ro
+    working_dir: /app
+    command: ["python", "fdi_server.py"]
+    networks:
+      - simulator-network
+    ports:
+      - "8081:8081"  # FDI Server API port
+    depends_on:
+      - smart-breaker-simulator
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  # FDI Web Demo for Smart Breaker
+  smart-breaker-web-demo:
+    build:
+      context: ../../../fdi/demos
+      dockerfile: Dockerfile
+    container_name: smart-breaker-web-demo
+    restart: unless-stopped
+    environment:
+      - FDI_SERVER_URL=http://smart-breaker-fdi-server:8081
+      - DEVICE_PROFILE_PATH=/app/device-profiles/smart-breaker.fdi
+    volumes:
+      - ../../../fdi/device-profiles:/app/device-profiles:ro
+      - ../../../fdi/templates:/app/templates:ro
+    working_dir: /app
+    command: ["python", "fdi_web_demo.py"]
+    networks:
+      - simulator-network
+    ports:
+      - "8082:8082"  # Web Demo port
+    depends_on:
+      - smart-breaker-fdi-server
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.1'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+
+networks:
+  simulator-network:
+    driver: bridge 

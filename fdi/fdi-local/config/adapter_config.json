@@ -1,0 +1,8 @@
+{
+  "opcua_adapter": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 4840
+  },
+  "description": "OPC UA is the primary interface for configurators/operators. The architecture supports pluggable adapters but currently only OPC UA is implemented."
+} 
